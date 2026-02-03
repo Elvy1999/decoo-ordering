@@ -3,6 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const TOKEN_KEY = "ADMIN_TOKEN";
 const REALTIME_CHANNEL = "admin-orders";
 
+const newOrderSound = new Audio("/order_sound.mp3");
+newOrderSound.volume = 0.7;
+
 const loginPanel = document.getElementById("login-panel");
 const adminPanels = document.getElementById("admin-panels");
 const loginBtn = document.getElementById("login-btn");
@@ -377,8 +380,14 @@ const startRealtime = () => {
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "orders" },
-      () => {
+      (payload) => {
         scheduleOrdersRefresh();
+        if (payload?.new?.status === "new") {
+          newOrderSound.currentTime = 0;
+          newOrderSound.play().catch(() => {
+            console.log("Audio blocked until user interaction");
+          });
+        }
         showToast("New order received.");
       },
     )
