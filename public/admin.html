@@ -329,6 +329,45 @@
       </section>
 
       <section id="admin-panels" hidden>
+        <section class="panel" id="orders-panel">
+          <div class="panel__header">
+            <h2>Recent Orders</h2>
+            <button class="btn btn--ghost btn--small" id="orders-refresh" type="button">Refresh</button>
+          </div>
+          <div class="helper">Click an order to view details.</div>
+          <div style="overflow-x:auto;">
+            <table class="orders-table">
+              <thead>
+                <tr>
+                  <th>Order Code</th>
+                  <th>Customer</th>
+                  <th>Phone</th>
+                  <th>Type</th>
+                  <th>Total</th>
+                  <th>Date</th>
+                  <th id="orders-status-header" hidden>Status</th>
+                </tr>
+              </thead>
+              <tbody id="orders-body"></tbody>
+            </table>
+          </div>
+          <div class="order-detail" id="order-detail">
+            <h3>Order Detail</h3>
+            <p class="helper">Select an order to see its items and customer info.</p>
+          </div>
+        </section>
+
+        <section class="panel" id="menu-panel">
+          <div class="panel__header">
+            <h2>Menu Management</h2>
+            <div class="field">
+              <label for="menu-search">Search</label>
+              <input id="menu-search" type="search" placeholder="Search by name or category" />
+            </div>
+          </div>
+          <div id="menu-groups"></div>
+        </section>
+
         <section class="panel" id="settings-panel">
           <div class="panel__header">
             <h2>Settings</h2>
@@ -363,45 +402,6 @@
             </div>
             <button class="btn" type="submit" id="settings-save">Save Settings</button>
           </form>
-        </section>
-
-        <section class="panel" id="menu-panel">
-          <div class="panel__header">
-            <h2>Menu Management</h2>
-            <div class="field">
-              <label for="menu-search">Search</label>
-              <input id="menu-search" type="search" placeholder="Search by name or category" />
-            </div>
-          </div>
-          <div id="menu-groups"></div>
-        </section>
-
-        <section class="panel" id="orders-panel">
-          <div class="panel__header">
-            <h2>Recent Orders</h2>
-            <button class="btn btn--ghost btn--small" id="orders-refresh" type="button">Refresh</button>
-          </div>
-          <div class="helper">Click an order to view details.</div>
-          <div style="overflow-x:auto;">
-            <table class="orders-table">
-              <thead>
-                <tr>
-                  <th>Order Code</th>
-                  <th>Customer</th>
-                  <th>Phone</th>
-                  <th>Type</th>
-                  <th>Total</th>
-                  <th>Date</th>
-                  <th id="orders-status-header" hidden>Status</th>
-                </tr>
-              </thead>
-              <tbody id="orders-body"></tbody>
-            </table>
-          </div>
-          <div class="order-detail" id="order-detail">
-            <h3>Order Detail</h3>
-            <p class="helper">Select an order to see its items and customer info.</p>
-          </div>
         </section>
       </section>
     </main>
