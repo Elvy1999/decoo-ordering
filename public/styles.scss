@@ -446,6 +446,7 @@ a {
   color: $color-black;
   border-radius: $radius-md;
   padding: $space-5;
+  padding-bottom: 80px;
   max-width: 520px;
   width: 100%;
   max-height: 80vh;
@@ -475,6 +476,42 @@ a {
     background: $color-yellow;
     color: $color-black;
   }
+}
+
+.modal-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: $space-2;
+  padding: $space-2;
+  background: $color-white;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin-top: $space-3;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 12px;
+  font-size: 1rem;
+  border-radius: $radius-sm;
+  border: none;
+  cursor: pointer;
+  font-family: $font-body;
+}
+
+.modal-btn--secondary {
+  background: $color-gray;
+  color: $color-black;
+}
+
+.modal-btn--primary {
+  background: $color-red;
+  color: $color-white;
+}
+
+.modal-btn--primary:hover {
+  background: $color-red-dark;
 }
 
 .checkout-steps {

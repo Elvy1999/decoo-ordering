@@ -464,6 +464,9 @@ const modalPairs = [
 
 const modalCloseButtons = document.querySelectorAll("[data-modal-close]");
 const modalBackdrops = document.querySelectorAll(".modal");
+const empanadasModal = document.querySelector("#empanadas-modal");
+const addDrinkBtn = document.getElementById("addDrinkBtn");
+const continueBtn = document.getElementById("continueBtn");
 const menuButton = document.querySelector("[data-scroll-menu]");
 const cartModal = document.querySelector("#cart-modal");
 const checkoutModal = document.querySelector("#checkout-modal");
@@ -511,6 +514,12 @@ const closeModal = (modal) => {
   if (!document.querySelector(".modal.is-open")) {
     document.body.style.overflow = "";
   }
+};
+
+const scrollToDrinksSection = () => {
+  const target = document.getElementById("drinks") || document.getElementById("juices");
+  if (!target) return;
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
 // --- Checkout flow ---
@@ -698,6 +707,19 @@ modalBackdrops.forEach((modal) => {
     }
   });
 });
+
+if (continueBtn) {
+  continueBtn.addEventListener("click", () => {
+    closeModal(empanadasModal);
+  });
+}
+
+if (addDrinkBtn) {
+  addDrinkBtn.addEventListener("click", () => {
+    closeModal(empanadasModal);
+    setTimeout(scrollToDrinksSection, 200);
+  });
+}
 
 // Close any open modal via ESC.
 document.addEventListener("keydown", (event) => {
