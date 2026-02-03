@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H3W6WLZ2QG"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-H3W6WLZ2QG");
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Decoo Restaurant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="container hero__content">
+        <div class="hero__topbar">
+          <div class="hero__logo">
+            <img src="images/Decoo_Logo.png" alt="Decoo Restaurant logo" />
+            <span class="hero__brand">Decoo Restaurant</span>
+          </div>
+        </div>
+        <div class="hero__intro">
+          <h1 class="hero__headline">Donde comer es un placer</h1>
+          <p class="hero__tagline">
+            Savor warm empanadas, golden sorullitos, and island flavors crafted daily with love.
+          </p>
+        </div>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#menu" data-scroll-menu>View Menu</a>
+          <a class="btn btn--primary" href="#juices">View Drinks</a>
+          <a class="btn btn--ghost" href="#hours">Hours of Operation</a>
+        </div>
+      </div>
+    </header>
+
+    <div class="site-banner" data-ordering-closed hidden>
+      Ordering is currently closed. Please check back later.
+    </div>
+
+    <main>
+      <section id="menu" class="menu-section section">
+        <div class="container">
+          <h2 class="section-title">Menu</h2>
+          <p class="section-note">(Click to order)</p>
+          <div class="menu-grid">
+            <article class="menu-card" data-empanadas>
+              <img src="images/Empanads.webp" alt="Empanadas" />
+              <div class="menu-card__label">
+                Empanadas
+                <span class="menu-card__hint">(click for flavors)</span>
+              </div>
+            </article>
+            <article class="menu-card" data-pinchos>
+              <img src="images/Pinchos.webp" alt="Pinchos" />
+              <div class="menu-card__label">Pinchos</div>
+            </article>
+            <article class="menu-card menu-card--quipe" data-quipes>
+              <img src="images/quipe.jpg" alt="Quipes" />
+              <div class="menu-card__label">Quipes</div>
+            </article>
+            <article class="menu-card" data-alcapurrias>
+              <img src="images/Alcapurrias.jpg" alt="Alcapurrias" />
+              <div class="menu-card__label">Alcapurrias</div>
+            </article>
+            <article class="menu-card" data-sorullitos>
+              <img src="images/Sorullitos.jpg" alt="Sorullitos" />
+              <div class="menu-card__label">Sorullitos</div>
+            </article>
+            <article class="menu-card" data-tres-leches>
+              <img src="images/tres_leches.jpg" alt="Tres Leches" />
+              <div class="menu-card__label">Tres Leches</div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="juices" class="drinks section">
+        <div class="container">
+          <h2 class="section-title">Drinks</h2>
+          <p class="section-note">(Click to order)</p>
+          <div class="drinks__grid">
+            <article class="drinks__card" data-juices>
+              <img src="images/juices.jpg" alt="Fresh juices" />
+              <h3>Natural Juices</h3>
+              <p class="drinks__subtitle price-list__note">(Freshly Made)</p>
+            </article>
+            <article class="drinks__card" data-beverages>
+              <img src="images/sodas.jpg" alt="Sodas" />
+              <h3>Sodas</h3>
+              <p class="drinks__subtitle" aria-hidden="true">&nbsp;</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="hours" class="hours section">
+        <div class="container">
+          <h2 class="section-title">Hours of Operation</h2>
+          <ul class="hours__list">
+            <li><span>Monday &amp; Sunday</span><span>Closed</span></li>
+            <li><span>Tuesday - Saturday</span><span>7:30 AM - 6:00 PM</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="contact" class="contact section">
+        <div class="container">
+          <h2 class="section-title">Contact</h2>
+          <div class="contact__grid">
+            <div class="contact__card">
+              <h3>Visit Us</h3>
+              <p>3066 E St, Philadelphia, PA 19134</p>
+            </div>
+            <div class="contact__card">
+              <h3>Call or Email</h3>
+              <p>Email: decoorestaurant@gmail.com</p>
+              <p>Phone: (215) 425-1604</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">Made with <span class="footer__heart">❤</span> by Elvy Decoo</footer>
+
+    <div class="modal" id="empanadas-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Empanadas Menu</h3>
+        <p>Choose your favorite filling and enjoy it hot!</p>
+        <ul class="price-list" data-menu-list="empanadas"></ul>
+      </div>
+    </div>
+
+    <div class="modal modal--single" id="alcapurrias-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Alcapurria</h3>
+        <p><span class="price-list__note">Golden fried yuca filled with savory ground beef</span></p>
+        <ul class="price-list" data-menu-list="alcapurrias"></ul>
+      </div>
+    </div>
+
+    <div class="modal modal--single" id="quipes-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Quipe</h3>
+        <p><span class="price-list__note">(Crispy fried croquette filled with seasoned beef)</span></p>
+        <ul class="price-list" data-menu-list="quipes"></ul>
+      </div>
+    </div>
+
+    <div class="modal modal--single" id="pinchos-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Pinchos</h3>
+        <p><span class="price-list__note">Juicy grilled meat skewer with bold seasoning</span></p>
+        <ul class="price-list" data-menu-list="pinchos"></ul>
+      </div>
+    </div>
+
+    <div class="modal modal--single" id="sorullitos-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Sorullitos</h3>
+        <p><span class="price-list__note">Crispy fried corn sticks with melted cheese</span></p>
+        <ul class="price-list" data-menu-list="sorullitos"></ul>
+      </div>
+    </div>
+
+    <div class="modal modal--single" id="tres-leches-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Tres Leches</h3>
+        <p><span class="price-list__note">Moist sponge cake soaked in three sweet milks</span></p>
+        <ul class="price-list" data-menu-list="tresLeches"></ul>
+      </div>
+    </div>
+
+    <div class="modal" id="juices-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Natural Juices</h3>
+        <p><span class="price-list__note">Home made, freshly blended</span></p>
+        <ul class="price-list" data-menu-list="juices"></ul>
+      </div>
+    </div>
+
+    <div class="modal" id="beverages-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Sodas</h3>
+        <ul class="price-list price-list--scroll" data-menu-list="sodas"></ul>
+      </div>
+    </div>
+
+    <div class="modal" id="cart-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Your Order</h3>
+        <div class="cart-actions">
+          <button type="button" class="cart-actions__clear" data-clear-cart>Clear Cart</button>
+        </div>
+
+        <ul class="cart-list" data-cart-list></ul>
+
+        <div class="totals" data-cart-totals>
+          <div class="totals__row"><span>Subtotal</span><span data-subtotal>$0.00</span></div>
+          <div class="totals__row"><span>Processing fee</span><span data-fee>$0.00</span></div>
+          <div class="totals__row"><span>Delivery fee</span><span data-delivery-fee>$0.00</span></div>
+          <div class="totals__row"><span>Tax</span><span data-tax>$0.00</span></div>
+          <div class="totals__divider"></div>
+          <div class="totals__row totals__row--total"><span>Total</span><span data-total>$0.00</span></div>
+          <p class="totals__note">No additional taxes applied</p>
+        </div>
+
+        <button type="button" class="btn btn--primary" data-open-checkout>Checkout</button>
+      </div>
+    </div>
+
+    <div class="modal" id="checkout-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Checkout</h3>
+        <p class="checkout-steps" data-checkout-steps>Step 1 of 2: Details</p>
+
+        <div class="checkout-step" data-checkout-step="details">
+          <label class="field">
+            <span>Name *</span>
+            <input type="text" data-field="name" autocomplete="name" />
+          </label>
+
+          <label class="field">
+            <span>Phone *</span>
+            <input type="tel" data-field="phone" autocomplete="tel" inputmode="tel" />
+          </label>
+
+          <div class="field">
+            <span>Order Type *</span>
+            <div class="segmented" data-order-type>
+              <button type="button" class="segmented__btn" data-set-order-type="pickup">Pickup</button>
+              <button type="button" class="segmented__btn" data-set-order-type="delivery">Delivery</button>
+            </div>
+            <p class="field__hint" data-delivery-disabled-msg hidden>
+              Delivery unavailable right now — Pickup only.
+            </p>
+          </div>
+
+          <label class="field" data-delivery-address-field hidden>
+            <span>Delivery Address *</span>
+            <input type="text" data-field="address" autocomplete="street-address" />
+          </label>
+
+          <div class="delivery-min" data-delivery-min hidden>
+            <p class="delivery-min__text" data-delivery-min-text></p>
+          </div>
+
+          <p class="form-error" data-checkout-error hidden></p>
+
+          <button type="button" class="btn btn--primary" data-checkout-continue>Continue</button>
+        </div>
+
+        <div class="checkout-step" data-checkout-step="review" hidden>
+          <ul class="checkout-summary" data-checkout-summary></ul>
+
+          <div class="delivery-min" data-delivery-min-review hidden>
+            <p class="delivery-min__text" data-delivery-min-review-text></p>
+          </div>
+
+          <div class="totals" data-checkout-totals>
+            <div class="totals__row"><span>Subtotal</span><span data-subtotal>$0.00</span></div>
+            <div class="totals__row"><span>Processing fee</span><span data-fee>$0.00</span></div>
+            <div class="totals__row"><span>Delivery fee</span><span data-delivery-fee>$0.00</span></div>
+            <div class="totals__row"><span>Tax</span><span data-tax>$0.00</span></div>
+            <div class="totals__divider"></div>
+            <div class="totals__row totals__row--total"><span>Total</span><span data-total>$0.00</span></div>
+            <p class="totals__note">No additional taxes applied</p>
+          </div>
+
+          <div class="checkout-actions">
+            <button type="button" class="btn btn--ghost" data-checkout-back>Back</button>
+            <button type="button" class="btn btn--primary" data-place-order>Place Order</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="confirmation-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Order received ✅</h3>
+
+        <p>Your order number is <strong data-order-id>#00000</strong></p>
+
+        <ul class="checkout-summary" data-confirmation-summary></ul>
+
+        <div class="totals" data-confirmation-totals>
+          <div class="totals__row"><span>Subtotal</span><span data-subtotal>$0.00</span></div>
+          <div class="totals__row"><span>Processing fee</span><span data-fee>$0.00</span></div>
+          <div class="totals__row"><span>Delivery fee</span><span data-delivery-fee>$0.00</span></div>
+          <div class="totals__row"><span>Tax</span><span data-tax>$0.00</span></div>
+          <div class="totals__divider"></div>
+          <div class="totals__row totals__row--total"><span>Total</span><span data-total>$0.00</span></div>
+          <p class="totals__note">No additional taxes applied</p>
+        </div>
+
+        <p class="confirmation-note">We’ll contact you when your order is ready.</p>
+
+        <button type="button" class="btn btn--primary" data-close-confirmation>Done</button>
+      </div>
+    </div>
+
+    <div class="cart-bar" data-cart-bar hidden>
+      <div class="cart-bar__info">
+        <span class="cart-bar__count"><span data-cart-count>0</span> items</span>
+        <span class="cart-bar__total" data-cart-total>$0.00</span>
+      </div>
+      <button type="button" class="cart-bar__btn" data-open-cart>View Order</button>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

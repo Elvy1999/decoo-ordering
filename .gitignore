@@ -1,0 +1,12 @@
+# Env file
+server/.env
+
+# Node stuff
+server/node_modules/
+
+# Logs
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
