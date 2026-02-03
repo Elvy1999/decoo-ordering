@@ -1,5 +1,8 @@
-# Env file
+# Env files
 server/.env
+.env
+.env.*
+!.env.example
 
 # Node stuff
 server/node_modules/
@@ -10,3 +13,4 @@ server/node_modules/
 # OS junk
 .DS_Store
 Thumbs.db
+.vercel
