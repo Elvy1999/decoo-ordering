@@ -142,7 +142,9 @@
         cursor: pointer;
         background: var(--accent);
         color: #fff;
-        transition: transform 0.12s ease, background 0.12s ease;
+        transition:
+          transform 0.12s ease,
+          background 0.12s ease;
       }
 
       .btn:disabled {
@@ -277,7 +279,9 @@
         box-shadow: var(--shadow);
         opacity: 0;
         transform: translateY(10px);
-        transition: opacity 0.2s ease, transform 0.2s ease;
+        transition:
+          opacity 0.2s ease,
+          transform 0.2s ease;
         pointer-events: none;
         z-index: 20;
       }
@@ -391,7 +395,13 @@
               </div>
               <div class="field">
                 <label for="delivery_radius_miles">Delivery Radius (miles)</label>
-                <input id="delivery_radius_miles" name="delivery_radius_miles" type="number" min="0" step="0.1" />
+                <input
+                  id="delivery_radius_miles"
+                  name="delivery_radius_miles"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                />
               </div>
               <div class="field">
                 <label for="processing_fee_cents">Processing Fee (cents)</label>
@@ -403,7 +413,13 @@
               </div>
               <div class="field">
                 <label for="delivery_min_total_cents">Delivery Min Total (cents)</label>
-                <input id="delivery_min_total_cents" name="delivery_min_total_cents" type="number" min="0" step="1" />
+                <input
+                  id="delivery_min_total_cents"
+                  name="delivery_min_total_cents"
+                  type="number"
+                  min="0"
+                  step="1"
+                />
               </div>
             </div>
             <button class="btn" type="submit" id="settings-save">Save Settings</button>
@@ -413,6 +429,7 @@
     </main>
 
     <div class="toast" id="toast"></div>
+    <script src="config.js"></script>
     <script type="module" src="admin.js" defer></script>
   </body>
 </html>
