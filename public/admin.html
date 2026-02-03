@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Decoo Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f2ec;
+        --panel: #ffffff;
+        --text: #1f1b16;
+        --muted: #6d6259;
+        --accent: #c45433;
+        --accent-dark: #9a3f27;
+        --border: #e7dfd5;
+        --success: #2e7d32;
+        --error: #b3261e;
+        --shadow: 0 18px 45px rgba(52, 38, 28, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Source Sans 3", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: "Playfair Display", serif;
+        margin: 0 0 8px;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .topbar {
+        background: #fff8f1;
+        border-bottom: 1px solid var(--border);
+        padding: 16px 0;
+      }
+
+      .container {
+        width: min(1120px, 92%);
+        margin: 0 auto;
+      }
+
+      .topbar__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .brand {
+        font-size: 1.3rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: var(--shadow);
+        margin-top: 24px;
+      }
+
+      .panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+
+      .panel__header h2 {
+        margin-bottom: 0;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 12px;
+        font-size: 0.95rem;
+      }
+
+      .field input[type="text"],
+      .field input[type="number"],
+      .field input[type="password"],
+      .field input[type="search"],
+      .field textarea,
+      .field select {
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        font: inherit;
+        background: #fffaf5;
+      }
+
+      .field input[type="search"] {
+        min-width: 240px;
+      }
+
+      .field--inline {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .field--inline input[type="checkbox"] {
+        transform: scale(1.1);
+      }
+
+      .helper {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .btn {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 18px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--accent);
+        color: #fff;
+        transition: transform 0.12s ease, background 0.12s ease;
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .btn:hover:not(:disabled) {
+        background: var(--accent-dark);
+        transform: translateY(-1px);
+      }
+
+      .btn--ghost {
+        background: transparent;
+        color: var(--accent);
+        border: 1px solid var(--accent);
+      }
+
+      .btn--small {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .grid--two {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+
+      .grid--three {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .menu-group {
+        border-top: 1px solid var(--border);
+        padding-top: 16px;
+        margin-top: 16px;
+      }
+
+      .menu-item {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        margin-top: 12px;
+        background: #fffdf9;
+      }
+
+      .menu-item__title {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .menu-item__title input {
+        flex: 1;
+      }
+
+      .menu-item__controls {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        align-items: end;
+      }
+
+      .menu-item__actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .orders-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+      }
+
+      .orders-table th,
+      .orders-table td {
+        text-align: left;
+        padding: 10px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .orders-table tr {
+        cursor: pointer;
+      }
+
+      .orders-table tr:hover {
+        background: #fff4ea;
+      }
+
+      .order-detail {
+        margin-top: 16px;
+        padding: 14px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #fffdf9;
+      }
+
+      .order-detail__items {
+        margin-top: 12px;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #f4e8dc;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: #1e1a16;
+        color: #fff;
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        opacity: 0;
+        transform: translateY(10px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: none;
+        z-index: 20;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .toast--success {
+        background: var(--success);
+      }
+
+      .toast--error {
+        background: var(--error);
+      }
+
+      @media (max-width: 720px) {
+        .topbar__row {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .orders-table {
+          font-size: 0.85rem;
+        }
+
+        .orders-table th:nth-child(3),
+        .orders-table td:nth-child(3) {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container topbar__row">
+        <div>
+          <div class="brand">Decoo Admin</div>
+          <div class="helper">Manage settings, menu items, and recent orders.</div>
+        </div>
+        <button class="btn btn--ghost" id="logout-btn" type="button">Log out</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="panel" id="login-panel">
+        <h2>Admin Login</h2>
+        <p class="helper">Enter your admin token to access management tools.</p>
+        <div class="field">
+          <label for="admin-token">Admin Token</label>
+          <input id="admin-token" type="password" placeholder="••••••••" />
+        </div>
+        <button class="btn" id="login-btn" type="button">Unlock Admin</button>
+      </section>
+
+      <section id="admin-panels" hidden>
+        <section class="panel" id="settings-panel">
+          <div class="panel__header">
+            <h2>Settings</h2>
+            <span class="badge" id="settings-status">Idle</span>
+          </div>
+          <form id="settings-form">
+            <div class="grid grid--two">
+              <div class="field field--inline">
+                <label for="ordering_enabled">Ordering Enabled</label>
+                <input id="ordering_enabled" name="ordering_enabled" type="checkbox" />
+              </div>
+              <div class="field field--inline">
+                <label for="delivery_enabled">Delivery Enabled</label>
+                <input id="delivery_enabled" name="delivery_enabled" type="checkbox" />
+              </div>
+              <div class="field">
+                <label for="delivery_radius_miles">Delivery Radius (miles)</label>
+                <input id="delivery_radius_miles" name="delivery_radius_miles" type="number" min="0" step="0.1" />
+              </div>
+              <div class="field">
+                <label for="processing_fee_cents">Processing Fee (cents)</label>
+                <input id="processing_fee_cents" name="processing_fee_cents" type="number" min="0" step="1" />
+              </div>
+              <div class="field">
+                <label for="delivery_fee_cents">Delivery Fee (cents)</label>
+                <input id="delivery_fee_cents" name="delivery_fee_cents" type="number" min="0" step="1" />
+              </div>
+              <div class="field">
+                <label for="delivery_min_total_cents">Delivery Min Total (cents)</label>
+                <input id="delivery_min_total_cents" name="delivery_min_total_cents" type="number" min="0" step="1" />
+              </div>
+            </div>
+            <button class="btn" type="submit" id="settings-save">Save Settings</button>
+          </form>
+        </section>
+
+        <section class="panel" id="menu-panel">
+          <div class="panel__header">
+            <h2>Menu Management</h2>
+            <div class="field">
+              <label for="menu-search">Search</label>
+              <input id="menu-search" type="search" placeholder="Search by name or category" />
+            </div>
+          </div>
+          <div id="menu-groups"></div>
+        </section>
+
+        <section class="panel" id="orders-panel">
+          <div class="panel__header">
+            <h2>Recent Orders</h2>
+            <button class="btn btn--ghost btn--small" id="orders-refresh" type="button">Refresh</button>
+          </div>
+          <div class="helper">Click an order to view details.</div>
+          <div style="overflow-x:auto;">
+            <table class="orders-table">
+              <thead>
+                <tr>
+                  <th>Order Code</th>
+                  <th>Customer</th>
+                  <th>Phone</th>
+                  <th>Type</th>
+                  <th>Total</th>
+                  <th>Date</th>
+                  <th id="orders-status-header" hidden>Status</th>
+                </tr>
+              </thead>
+              <tbody id="orders-body"></tbody>
+            </table>
+          </div>
+          <div class="order-detail" id="order-detail">
+            <h3>Order Detail</h3>
+            <p class="helper">Select an order to see its items and customer info.</p>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <script src="admin.js" defer></script>
+  </body>
+</html>
