@@ -224,6 +224,12 @@
         font-size: 0.95rem;
       }
 
+      .orders-table-wrapper {
+        overflow-x: auto;
+        overflow-y: hidden;
+        max-height: none;
+      }
+
       .orders-table th,
       .orders-table td {
         text-align: left;
@@ -335,7 +341,7 @@
             <button class="btn btn--ghost btn--small" id="orders-refresh" type="button">Refresh</button>
           </div>
           <div class="helper">Click an order to view details.</div>
-          <div style="overflow-x:auto;">
+          <div class="orders-table-wrapper" id="orders-table-wrapper">
             <table class="orders-table">
               <thead>
                 <tr>

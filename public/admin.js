@@ -15,6 +15,8 @@ const menuSearch = document.getElementById("menu-search");
 const menuGroups = document.getElementById("menu-groups");
 
 const ordersBody = document.getElementById("orders-body");
+const ordersTableWrapper = document.getElementById("orders-table-wrapper");
+const ordersTable = document.querySelector(".orders-table");
 const ordersRefreshBtn = document.getElementById("orders-refresh");
 const ordersStatusHeader = document.getElementById("orders-status-header");
 const orderDetail = document.getElementById("order-detail");
@@ -333,6 +335,29 @@ const loadOrders = async () => {
   }
 };
 
+const updateOrdersTableScroll = () => {
+  if (!ordersTableWrapper || !ordersTable) return;
+  const rows = Array.from(ordersBody.querySelectorAll("tr"));
+
+  if (rows.length <= 10) {
+    ordersTableWrapper.style.maxHeight = "";
+    ordersTableWrapper.style.overflowY = "hidden";
+    return;
+  }
+
+  const header = ordersTable.querySelector("thead");
+  const headerHeight = header ? header.getBoundingClientRect().height : 0;
+  const rowsHeight = rows.slice(0, 10).reduce((sum, row) => sum + row.getBoundingClientRect().height, 0);
+  const maxHeight = Math.ceil(headerHeight + rowsHeight);
+  ordersTableWrapper.style.maxHeight = `${maxHeight}px`;
+  ordersTableWrapper.style.overflowY = "auto";
+};
+
+const scheduleOrdersTableScroll = () => {
+  if (!ordersTableWrapper) return;
+  requestAnimationFrame(updateOrdersTableScroll);
+};
+
 const renderOrders = () => {
   ordersBody.innerHTML = "";
   const hasStatus = orders.some((order) => typeof order.status !== "undefined");
@@ -345,6 +370,7 @@ const renderOrders = () => {
     cell.textContent = "No recent orders.";
     row.appendChild(cell);
     ordersBody.appendChild(row);
+    scheduleOrdersTableScroll();
     return;
   }
 
@@ -365,6 +391,8 @@ const renderOrders = () => {
     });
     ordersBody.appendChild(row);
   });
+
+  scheduleOrdersTableScroll();
 };
 
 const loadOrderDetail = async (id) => {
@@ -474,5 +502,6 @@ logoutBtn.addEventListener("click", () => {
 menuSearch.addEventListener("input", renderMenu);
 settingsForm.addEventListener("submit", saveSettings);
 ordersRefreshBtn.addEventListener("click", loadOrders);
+window.addEventListener("resize", scheduleOrdersTableScroll);
 
 initialize();
