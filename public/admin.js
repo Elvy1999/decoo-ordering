@@ -141,8 +141,16 @@ const loadMenu = async () => {
 
 const renderMenu = () => {
   const term = menuSearch.value.trim().toLowerCase();
+  if (!term) {
+    menuGroups.innerHTML = "";
+    const empty = document.createElement("p");
+    empty.className = "helper";
+    empty.textContent = "Start typing to search the menu.";
+    menuGroups.appendChild(empty);
+    return;
+  }
+
   const filtered = menuItems.filter((item) => {
-    if (!term) return true;
     const name = String(item.name || "").toLowerCase();
     const category = String(item.category || "").toLowerCase();
     return name.includes(term) || category.includes(term);
