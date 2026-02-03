@@ -9,7 +9,7 @@ export function requireAdmin(req, res) {
     fail(res, 500, "ADMIN_TOKEN_MISSING", "Server is not configured for admin access.");
     return false;
   }
-
+  //fake comment for redeployment
   if (!token || token !== expected) {
     fail(res, 401, "UNAUTHORIZED", "Admin token required.");
     return false;
