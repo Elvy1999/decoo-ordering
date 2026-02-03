@@ -479,6 +479,7 @@ const checkoutTotals = document.querySelector("[data-checkout-totals]");
 const confirmationSummary = document.querySelector("[data-confirmation-summary]");
 const confirmationTotals = document.querySelector("[data-confirmation-totals]");
 const confirmationOrderId = document.querySelector("[data-order-id]");
+const confirmationNote = document.querySelector("[data-confirmation-note]");
 
 // --- Checkout state ---
 let checkoutState = {
@@ -667,6 +668,12 @@ const renderConfirmation = (orderId, cartSnapshot, totals) => {
   if (confirmationOrderId) confirmationOrderId.textContent = orderId;
   renderCheckoutSummary(confirmationSummary, cartSnapshot);
   updateTotalsBlock(confirmationTotals, totals);
+  if (confirmationNote) {
+    confirmationNote.textContent =
+      checkoutState.orderType === "pickup"
+        ? "Pickup orders are typically ready within 15 minutes."
+        : "We’ll contact you when your order is ready.";
+  }
 };
 
 // --- Modal wiring ---

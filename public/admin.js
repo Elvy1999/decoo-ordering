@@ -1,4 +1,7 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const TOKEN_KEY = "ADMIN_TOKEN";
+const REALTIME_CHANNEL = "admin-orders";
 
 const loginPanel = document.getElementById("login-panel");
 const adminPanels = document.getElementById("admin-panels");
@@ -23,6 +26,9 @@ const orderDetail = document.getElementById("order-detail");
 
 let menuItems = [];
 let orders = [];
+let supabaseClient = null;
+let realtimeChannel = null;
+let ordersRefreshTimer = null;
 
 const showToast = (message, type = "success") => {
   if (!toastEl) return;
@@ -42,9 +48,22 @@ const setAuthState = (isAuthed) => {
 
 const getToken = () => sessionStorage.getItem(TOKEN_KEY);
 
+const getSupabaseClient = () => {
+  if (supabaseClient) return supabaseClient;
+  const url = window.PUBLIC_SUPABASE_URL;
+  const anonKey = window.PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    console.warn("Supabase public credentials are missing; realtime disabled.");
+    return null;
+  }
+  supabaseClient = createClient(url, anonKey);
+  return supabaseClient;
+};
+
 const handleUnauthorized = () => {
   sessionStorage.removeItem(TOKEN_KEY);
   setAuthState(false);
+  stopRealtime();
   showToast("Session expired. Please log in again.", "error");
 };
 
@@ -335,6 +354,51 @@ const loadOrders = async () => {
   }
 };
 
+const scheduleOrdersRefresh = () => {
+  if (ordersRefreshTimer) return;
+  ordersRefreshTimer = setTimeout(() => {
+    ordersRefreshTimer = null;
+    loadOrders();
+  }, 400);
+};
+
+const startRealtime = () => {
+  if (!getToken()) return;
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  if (realtimeChannel) {
+    client.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+
+  realtimeChannel = client
+    .channel(REALTIME_CHANNEL)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "orders" },
+      () => {
+        scheduleOrdersRefresh();
+        showToast("New order received.");
+      },
+    )
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "orders" },
+      () => {
+        scheduleOrdersRefresh();
+      },
+    )
+    .subscribe();
+};
+
+const stopRealtime = () => {
+  if (!realtimeChannel) return;
+  const client = getSupabaseClient();
+  if (client) client.removeChannel(realtimeChannel);
+  realtimeChannel = null;
+};
+
 const updateOrdersTableScroll = () => {
   if (!ordersTableWrapper || !ordersTable) return;
   const rows = Array.from(ordersBody.querySelectorAll("tr"));
@@ -470,7 +534,9 @@ const initialize = () => {
   setAuthState(Boolean(token));
 
   if (token) {
-    Promise.all([loadSettings(), loadMenu(), loadOrders()]).catch(() => {});
+    Promise.all([loadSettings(), loadMenu(), loadOrders()])
+      .then(() => startRealtime())
+      .catch(() => {});
   }
 };
 
@@ -486,6 +552,7 @@ loginBtn.addEventListener("click", async () => {
 
   try {
     await Promise.all([loadSettings(), loadMenu(), loadOrders()]);
+    startRealtime();
     showToast("Welcome back.");
     tokenInput.value = "";
   } catch (error) {
@@ -496,6 +563,7 @@ loginBtn.addEventListener("click", async () => {
 logoutBtn.addEventListener("click", () => {
   sessionStorage.removeItem(TOKEN_KEY);
   setAuthState(false);
+  stopRealtime();
   showToast("Logged out.");
 });
 
