@@ -21,6 +21,14 @@ const formatMoney = (amount) => {
   return `$${n.toFixed(2)}`;
 };
 
+const getErrorMessage = (data, fallback) => {
+  if (!data) return fallback;
+  if (typeof data.error === "string") return data.error;
+  if (data.error && typeof data.error.message === "string") return data.error.message;
+  if (typeof data.message === "string") return data.message;
+  return fallback;
+};
+
 const normalizeSettings = (settings) => ({
   pickupEnabled: true,
   orderingEnabled: Boolean(settings?.ordering_enabled),
@@ -746,7 +754,7 @@ document.addEventListener("click", async (event) => {
         const data = await resp.json().catch(() => null);
 
         if (!resp.ok || !data || !data.ok) {
-          const msg = data?.error || "Could not validate delivery address.";
+          const msg = getErrorMessage(data, "Could not validate delivery address.");
           if (checkoutError) {
             checkoutError.textContent = msg;
             checkoutError.hidden = false;
@@ -824,7 +832,7 @@ document.addEventListener("click", async (event) => {
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data || !data.ok) {
-        const message = data && data.error ? data.error : "Could not place order. Please try again.";
+        const message = getErrorMessage(data, "Could not place order. Please try again.");
         if (checkoutError) {
           checkoutError.textContent = message;
           checkoutError.hidden = false;

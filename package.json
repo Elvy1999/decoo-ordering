@@ -1,0 +1,10 @@
+{
+  "name": "decoo-ordering",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Vercel serverless functions for DecoO ordering",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.78.0"
+  }
+}
