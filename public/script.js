@@ -8,7 +8,7 @@ const CATEGORY_MAP = {
   empanadas: "Empanadas",
   juices: "Juices",
   sodas: "Sodas",
-  pinchos: "Pinchos",
+  pinchos: "Grill",
   quipes: "Quipes",
   alcapurrias: "Alcapurrias",
   sorullitos: "Sorullitos",
