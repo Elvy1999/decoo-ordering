@@ -9,8 +9,15 @@ const CATEGORY_MAP = {
   juices: "Juices",
   sodas: "Sodas",
   pinchos: "Grill",
-  quipes: "Quipes",
-  alcapurrias: "Alcapurrias",
+  quipes: "Fried",
+  alcapurrias: "Fried",
+  sorullitos: "Fried",
+  tresLeches: "Desserts",
+};
+
+const MENU_NAME_FILTER = {
+  quipes: "Quipe",
+  alcapurrias: "Alcapurria",
   sorullitos: "Sorullitos",
   tresLeches: "Tres Leches",
 };
@@ -285,11 +292,21 @@ const renderAllMenus = (cartState) => {
     const key = listEl.dataset.menuList;
     const category = CATEGORY_MAP[key];
     if (!category) return;
+
     const categoryKey = normalizeCategory(category);
-    const items = menuItems.filter((item) => normalizeCategory(item.category) === categoryKey);
+
+    let items = menuItems.filter((item) => normalizeCategory(item.category) === categoryKey);
+
+    const requiredName = MENU_NAME_FILTER[key];
+    if (requiredName) {
+      const nameKey = normalizeCategory(requiredName);
+      items = items.filter((item) => normalizeCategory(item.name) === nameKey);
+    }
+
     const sortedItems = items
       .slice()
       .sort((a, b) => (Number(a.sortOrder || 0) || 0) - (Number(b.sortOrder || 0) || 0));
+
     renderMenuList(listEl, sortedItems, cartState);
   });
 };
