@@ -480,9 +480,8 @@ const modalPairs = [
 
 const modalCloseButtons = document.querySelectorAll("[data-modal-close]");
 const modalBackdrops = document.querySelectorAll(".modal");
-const empanadasModal = document.querySelector("#empanadas-modal");
-const addDrinkBtn = document.getElementById("addDrinkBtn");
-const continueBtn = document.getElementById("continueBtn");
+const addDrinkButtons = document.querySelectorAll("[data-add-drink]");
+const continueButtons = document.querySelectorAll("[data-continue]");
 const menuButton = document.querySelector("[data-scroll-menu]");
 const cartModal = document.querySelector("#cart-modal");
 const checkoutModal = document.querySelector("#checkout-modal");
@@ -724,18 +723,20 @@ modalBackdrops.forEach((modal) => {
   });
 });
 
-if (continueBtn) {
-  continueBtn.addEventListener("click", () => {
-    closeModal(empanadasModal);
+continueButtons.forEach((button) => {
+  button.addEventListener("click", (event) => {
+    const modal = event.target.closest(".modal");
+    closeModal(modal);
   });
-}
+});
 
-if (addDrinkBtn) {
-  addDrinkBtn.addEventListener("click", () => {
-    closeModal(empanadasModal);
+addDrinkButtons.forEach((button) => {
+  button.addEventListener("click", (event) => {
+    const modal = event.target.closest(".modal");
+    closeModal(modal);
     setTimeout(scrollToDrinksSection, 200);
   });
-}
+});
 
 // Close any open modal via ESC.
 document.addEventListener("keydown", (event) => {
