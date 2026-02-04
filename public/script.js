@@ -5,15 +5,17 @@ let itemById = {};
 let menuItems = [];
 
 const CATEGORY_MAP = {
-  empanadas: { category: "Empanadas" },
-  juices: { category: "Juices" },
-  sodas: { category: "Sodas" },
-  pinchos: { category: "Grill", name: "Pincho" },
-  quipes: { category: "Fried", name: "Quipe" },
-  alcapurrias: { category: "Fried", name: "Alcapurria" },
-  sorullitos: { category: "Fried", name: "Sorullitos" },
-  tresLeches: { category: "Desserts", name: "Tres Leches" },
+  empanadas: "Empanadas",
+  juices: "Juices",
+  sodas: "Sodas",
+  pinchos: "Pinchos",
+  quipes: "Quipes",
+  alcapurrias: "Alcapurrias",
+  sorullitos: "Sorullitos",
+  tresLeches: "Tres Leches",
 };
+
+const normalizeCategory = (value) => String(value || "").trim().toLowerCase();
 
 const formatMoney = (amount) => {
   const n = Number(amount);
@@ -281,13 +283,10 @@ const renderMenuList = (listEl, items, cartState) => {
 const renderAllMenus = (cartState) => {
   document.querySelectorAll("[data-menu-list]").forEach((listEl) => {
     const key = listEl.dataset.menuList;
-    const mapping = CATEGORY_MAP[key];
-    if (!mapping) return;
-    const items = menuItems.filter((item) => {
-      if (item.category !== mapping.category) return false;
-      if (mapping.name && item.name !== mapping.name) return false;
-      return true;
-    });
+    const category = CATEGORY_MAP[key];
+    if (!category) return;
+    const categoryKey = normalizeCategory(category);
+    const items = menuItems.filter((item) => normalizeCategory(item.category) === categoryKey);
     const sortedItems = items
       .slice()
       .sort((a, b) => (Number(a.sortOrder || 0) || 0) - (Number(b.sortOrder || 0) || 0));
