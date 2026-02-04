@@ -5,10 +5,15 @@ import handleSettings from "./_handlers/settings.js";
 import handleHealth from "./_handlers/health.js";
 import handleValidateDelivery from "./_handlers/validateDelivery.js";
 
+function getPath(req) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const pathname = url.pathname || "/";
+  const p = pathname.replace(/^\/api/, "") || "/";
+  return p === "" ? "/" : p;
+}
+
 export default async function handler(req, res) {
-  const rawRoute = req.query?.route;
-  const route = Array.isArray(rawRoute) ? rawRoute : rawRoute ? [rawRoute] : [];
-  const path = "/" + route.filter(Boolean).join("/");
+  const path = getPath(req);
 
   if (path === "/menu") return handleMenu(req, res);
   if (path === "/orders") return handleOrders(req, res);

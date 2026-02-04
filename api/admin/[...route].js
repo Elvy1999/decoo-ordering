@@ -7,10 +7,15 @@ import handleAdminOrder from "../_handlers/admin/order.js";
 import handleAdminSettings from "../_handlers/admin/settings.js";
 import handleAdminDiag from "../_handlers/admin/diag.js";
 
+function getAdminPath(req) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const pathname = url.pathname || "/";
+  const p = pathname.replace(/^\/api\/admin/, "") || "/";
+  return p === "" ? "/" : p;
+}
+
 export default async function handler(req, res) {
-  const rawRoute = req.query?.route;
-  const route = Array.isArray(rawRoute) ? rawRoute : rawRoute ? [rawRoute] : [];
-  const path = `/${route.join("/")}`;
+  const path = getAdminPath(req);
 
   if (!requireAdmin(req, res)) return;
 
