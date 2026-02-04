@@ -8,7 +8,7 @@ import handleValidateDelivery from "./_handlers/validateDelivery.js";
 export default async function handler(req, res) {
   const rawRoute = req.query?.route;
   const route = Array.isArray(rawRoute) ? rawRoute : rawRoute ? [rawRoute] : [];
-  const path = `/${route.join("/")}`;
+  const path = "/" + route.filter(Boolean).join("/");
 
   if (path === "/menu") return handleMenu(req, res);
   if (path === "/orders") return handleOrders(req, res);
