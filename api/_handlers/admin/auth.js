@@ -1,4 +1,4 @@
-import { fail } from "../_shared.js";
+import { fail } from "../shared.js";
 
 export function requireAdmin(req, res) {
   const headerValue = req.headers?.["x-admin-token"];

@@ -6,7 +6,7 @@ import {
   fetchSettings,
   geocodeAddressMapbox,
   haversineMiles,
-} from "./_shared.js";
+} from "./shared.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);

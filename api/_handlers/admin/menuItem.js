@@ -1,5 +1,5 @@
-import { ok, fail, methodNotAllowed, supabaseServerClient } from "../_shared.js";
-import { requireAdmin } from "./_auth.js";
+import { ok, fail, methodNotAllowed, supabaseServerClient } from "../shared.js";
+import { requireAdmin } from "./auth.js";
 
 const isInteger = (value) => Number.isInteger(Number(value));
 

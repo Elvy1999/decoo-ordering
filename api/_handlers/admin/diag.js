@@ -5,7 +5,7 @@ import {
   supabaseServerClient,
   fetchSettings,
   geocodeAddressMapbox,
-} from "./_shared.js";
+} from "../shared.js";
 
 function mask(value) {
   if (!value) return "";

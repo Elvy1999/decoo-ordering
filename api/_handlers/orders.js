@@ -15,7 +15,7 @@ import {
   MAX_ITEM_QTY,
   MAX_TOTAL_QTY,
   MAX_UNIQUE_ITEMS,
-} from "./_shared.js";
+} from "./shared.js";
 
 function validateOrderPayload(payload) {
   if (!payload || typeof payload !== "object") {

@@ -1,5 +1,5 @@
-import { ok, fail, methodNotAllowed, supabaseServerClient, fetchSettings } from "../_shared.js";
-import { requireAdmin } from "./_auth.js";
+import { ok, fail, methodNotAllowed, supabaseServerClient, fetchSettings } from "../shared.js";
+import { requireAdmin } from "./auth.js";
 
 const SETTINGS_FIELDS =
   "ordering_enabled,delivery_enabled,delivery_radius_miles,processing_fee_cents,delivery_fee_cents,delivery_min_total_cents";
