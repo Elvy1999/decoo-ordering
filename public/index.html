@@ -323,10 +323,22 @@
           </div>
 
           <div class="payment" data-payment-section hidden>
-            <p class="payment__title">Payment</p>
+            <div class="payment__header">
+              <div class="payment__heading">
+                <p class="payment__title">Payment details</p>
+                <p class="payment__subtitle">All transactions are secure and encrypted.</p>
+              </div>
+              <div class="payment__brands" aria-label="Accepted card brands">
+                <span class="payment__brand">Visa</span>
+                <span class="payment__brand">Mastercard</span>
+                <span class="payment__brand">Amex</span>
+                <span class="payment__brand">Discover</span>
+              </div>
+            </div>
             <div id="clover-payment-container"></div>
+            <p class="payment__security">Secure checkout powered by Clover.</p>
             <p class="form-error" data-payment-error hidden></p>
-            <button type="button" class="btn btn--primary" data-pay-now>Pay Now</button>
+            <button type="button" class="btn btn--primary payment__submit" data-pay-now>Pay Now</button>
           </div>
 
           <div class="checkout-actions">

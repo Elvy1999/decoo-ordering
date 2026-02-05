@@ -637,41 +637,71 @@ p {
 
 .payment {
   margin-top: 16px;
-  padding: 18px 18px 20px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 20px;
+  border: 1px solid #e5e7eb;
   border-radius: 16px;
-  background: linear-gradient(140deg, #f8fafc 0%, #fff6f0 100%);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.08);
   position: relative;
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .payment::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  border-radius: 16px 16px 0 0;
-  background: linear-gradient(90deg, #ff7a59, #f4c27a);
-  opacity: 0.85;
+  content: none;
+}
+
+.payment__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.payment__heading {
+  display: grid;
+  gap: 4px;
 }
 
 .payment__title {
   margin: 0;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 1rem;
+  color: #111111;
+}
+
+.payment__subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(17, 17, 17, 0.65);
+}
+
+.payment__brands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.payment__brand {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(17, 17, 17, 0.8);
+  color: #4b5563;
 }
 
 .payment__grid {
   display: grid;
   gap: 12px;
-  padding: 12px;
+  padding: 16px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
 }
 
 .payment__row {
@@ -687,32 +717,44 @@ p {
 
 .payment__label {
   font-weight: 600;
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(17, 17, 17, 0.7);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: rgba(17, 17, 17, 0.75);
 }
 
 .clover-field {
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 48px;
+  padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  background: #ffffff;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  box-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.06);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .clover-field:focus-within {
-  border-color: rgba(17, 17, 17, 0.75);
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+  border-color: #f5c542;
+  box-shadow: 0 0 0 3px rgba(245, 197, 66, 0.25);
 }
 
 .input-errors {
   min-height: 1em;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #8e1c1c;
+}
+
+.payment__security {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(17, 17, 17, 0.6);
+}
+
+.payment__submit {
+  width: 100%;
+  border-radius: 12px;
+  letter-spacing: 0.2px;
 }
 
 @media (max-width: 720px) {
