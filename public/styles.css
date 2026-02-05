@@ -711,14 +711,14 @@ p {
 
 .clover-field iframe {
   width: 100% !important;
-  height: 40px !important;
+  height: 26px !important;
   border: 0 !important;
   display: block !important;
 }
 
 #clover-card-number.clover-field,
 #clover-card-number iframe {
-  height: 42px !important;
+  height: 26px !important;
 }
 
 #clover-card-number,

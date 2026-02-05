@@ -1,4 +1,11 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const supabaseLib = window.supabase;
+const createClient = supabaseLib?.createClient;
+
+if (!createClient) {
+  console.error(
+    "Supabase UMD bundle not available. Ensure https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js is loaded before admin.js.",
+  );
+}
 
 const TOKEN_KEY = "ADMIN_TOKEN";
 const REALTIME_CHANNEL = "admin-orders";
@@ -52,6 +59,10 @@ const setAuthState = (isAuthed) => {
 const getToken = () => sessionStorage.getItem(TOKEN_KEY);
 
 const getSupabaseClient = () => {
+  if (!createClient) {
+    console.warn("Supabase client unavailable; realtime disabled.");
+    return null;
+  }
   if (supabaseClient) return supabaseClient;
   const url = window.PUBLIC_SUPABASE_URL;
   const anonKey = window.PUBLIC_SUPABASE_ANON_KEY;
