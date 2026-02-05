@@ -131,7 +131,7 @@ const fillSettingsForm = (settings) => {
 const loadSettings = async () => {
   setSettingsStatus("Loading...");
   try {
-    const settings = await apiFetch("/api/admin/settings");
+    const settings = await apiFetch("/api/admin?route=settings");
     fillSettingsForm(settings);
     setSettingsStatus("Loaded");
   } catch (error) {
@@ -153,7 +153,7 @@ const saveSettings = async (event) => {
       delivery_fee_cents: Number(settingsForm.delivery_fee_cents.value || 0),
       delivery_min_total_cents: Number(settingsForm.delivery_min_total_cents.value || 0),
     };
-    const updated = await apiFetch("/api/admin/settings", { method: "PATCH", body: payload });
+    const updated = await apiFetch("/api/admin?route=settings", { method: "PATCH", body: payload });
     fillSettingsForm(updated);
     setSettingsStatus("Saved");
     showToast("Settings updated.");
@@ -167,7 +167,7 @@ const saveSettings = async (event) => {
 
 const loadMenu = async () => {
   try {
-    menuItems = await apiFetch("/api/admin/menu");
+    menuItems = await apiFetch("/api/admin?route=menu");
     renderMenu();
   } catch (error) {
     showToast(error.message || "Failed to load menu.", "error");
@@ -341,7 +341,7 @@ const buildMenuItemCard = (item) => {
         is_active: activeInput.checked,
         in_stock: stockInput.checked,
       };
-      const updated = await apiFetch("/api/admin/menu-item", { method: "PATCH", body: payload });
+      const updated = await apiFetch("/api/admin?route=menu-item", { method: "PATCH", body: payload });
       menuItems = menuItems.map((row) => (row.id === updated.id ? updated : row));
       renderMenu();
       showToast("Menu item updated.");
@@ -361,7 +361,7 @@ const buildMenuItemCard = (item) => {
 
 const loadOrders = async () => {
   try {
-    orders = await apiFetch("/api/admin/orders");
+    orders = await apiFetch("/api/admin?route=orders");
     renderOrders();
   } catch (error) {
     showToast(error.message || "Failed to load orders.", "error");
@@ -481,7 +481,7 @@ const renderOrders = () => {
 
 const loadOrderDetail = async (id) => {
   try {
-    const data = await apiFetch(`/api/admin/order?id=${id}`);
+    const data = await apiFetch(`/api/admin?route=order&id=${id}`);
     renderOrderDetail(data.order, data.items);
   } catch (error) {
     showToast(error.message || "Failed to load order.", "error");
@@ -533,7 +533,7 @@ const renderOrderDetail = (order, items) => {
     statusBtn.addEventListener("click", async () => {
       statusBtn.disabled = true;
       try {
-        const updated = await apiFetch("/api/admin/order", {
+        const updated = await apiFetch("/api/admin?route=order", {
           method: "PATCH",
           body: { id: order.id, status: statusInput.value.trim() },
         });
