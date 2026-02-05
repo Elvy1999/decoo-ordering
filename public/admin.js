@@ -106,6 +106,18 @@ const apiFetch = async (path, { method = "GET", body } = {}) => {
   return data;
 };
 
+const validateToken = async (token) => {
+  if (!token) throw new Error("Invalid token");
+  const response = await fetch("/api/admin?route=settings", {
+    method: "GET",
+    headers: { "x-admin-token": token },
+  });
+  if (!response.ok) {
+    throw new Error(response.status === 401 ? "Unauthorized" : "Invalid token");
+  }
+  return true;
+};
+
 const formatMoney = (cents) => {
   const value = Number(cents) / 100;
   if (!Number.isFinite(value)) return "$0.00";
@@ -549,34 +561,47 @@ const renderOrderDetail = (order, items) => {
   }
 };
 
-const initialize = () => {
+const initialize = async () => {
   const token = getToken();
-  setAuthState(Boolean(token));
+  setAuthState(false);
 
   if (token) {
-    Promise.all([loadSettings(), loadMenu(), loadOrders()])
-      .then(() => startRealtime())
-      .catch(() => {});
+    try {
+      await validateToken(token);
+      setAuthState(true);
+      await Promise.all([loadSettings(), loadMenu(), loadOrders()]);
+      startRealtime();
+    } catch (error) {
+      sessionStorage.removeItem(TOKEN_KEY);
+      setAuthState(false);
+      showToast("Invalid token", "error");
+    }
   }
 };
 
 loginBtn.addEventListener("click", async () => {
+  loginBtn.disabled = true;
   const token = tokenInput.value.trim();
   if (!token) {
     showToast("Please enter your admin token.", "error");
+    loginBtn.disabled = false;
     return;
   }
 
-  sessionStorage.setItem(TOKEN_KEY, token);
-  setAuthState(true);
-
   try {
+    await validateToken(token);
+    sessionStorage.setItem(TOKEN_KEY, token);
+    setAuthState(true);
     await Promise.all([loadSettings(), loadMenu(), loadOrders()]);
     startRealtime();
     showToast("Welcome back.");
     tokenInput.value = "";
   } catch (error) {
-    handleUnauthorized();
+    sessionStorage.removeItem(TOKEN_KEY);
+    setAuthState(false);
+    showToast("Invalid token", "error");
+  } finally {
+    loginBtn.disabled = false;
   }
 });
 
