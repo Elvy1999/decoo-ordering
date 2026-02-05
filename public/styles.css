@@ -452,8 +452,8 @@ a {
   padding-bottom: 80px;
   max-width: 520px;
   width: 100%;
-  max-height: 80vh;
-  overflow-y: auto;
+  max-height: min(86vh, 760px);
+  overflow: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   position: relative;
 }
@@ -637,71 +637,44 @@ p {
 
 .payment {
   margin-top: 16px;
-  padding: 20px;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.08);
-  position: relative;
+  padding: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  background: #fff;
   display: grid;
-  gap: 16px;
-}
-
-.payment::before {
-  content: none;
-}
-
-.payment__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.payment__heading {
-  display: grid;
-  gap: 4px;
+  gap: 12px;
 }
 
 .payment__title {
-  margin: 0;
+  margin: 0 0 10px;
   font-weight: 700;
-  font-size: 1rem;
-  color: #111111;
 }
 
-.payment__subtitle {
-  margin: 0;
-  font-size: 0.9rem;
-  color: rgba(17, 17, 17, 0.65);
+.payment__frame {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fafafa;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  min-height: 260px;
 }
 
-.payment__brands {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.payment__frame iframe {
+  display: block;
+  width: 100%;
+  border: 0;
 }
 
-.payment__brand {
-  padding: 4px 8px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #f8fafc;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #4b5563;
+.payment__frame > iframe {
+  height: 320px;
 }
 
 .payment__grid {
   display: grid;
   gap: 12px;
-  padding: 16px;
-  border-radius: 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  padding: 12px;
 }
 
 .payment__row {
@@ -745,21 +718,38 @@ p {
   color: #8e1c1c;
 }
 
-.payment__security {
-  margin: 0;
-  font-size: 0.85rem;
-  color: rgba(17, 17, 17, 0.6);
+.payment__pay {
+  width: 100%;
+  margin-top: 12px;
 }
 
-.payment__submit {
+.payment__edit {
   width: 100%;
-  border-radius: 12px;
-  letter-spacing: 0.2px;
+  margin-top: 8px;
+}
+
+.payment__edit.btn--ghost {
+  border-color: rgba(0, 0, 0, 0.2);
+  color: #111111;
+}
+
+.payment__edit.btn--ghost:hover {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 @media (max-width: 720px) {
   .payment__row {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .payment {
+    padding: 12px;
+  }
+
+  .payment__frame > iframe {
+    height: 360px;
   }
 }
 

@@ -516,6 +516,7 @@ const checkoutFieldPhone = document.querySelector('[data-field="phone"]');
 const checkoutFieldAddress = document.querySelector('[data-field="address"]');
 const checkoutSummary = document.querySelector("[data-checkout-summary]");
 const checkoutTotals = document.querySelector("[data-checkout-totals]");
+const checkoutActions = document.querySelector("[data-checkout-actions]");
 const confirmationSummary = document.querySelector("[data-confirmation-summary]");
 const confirmationTotals = document.querySelector("[data-confirmation-totals]");
 const confirmationOrderId = document.querySelector("[data-order-id]");
@@ -524,6 +525,7 @@ const paymentSection = document.querySelector("[data-payment-section]");
 const paymentError = document.querySelector("[data-payment-error]");
 const paymentContainer = document.querySelector("#clover-payment-container");
 const payNowBtn = document.querySelector("[data-pay-now]");
+const editOrderBtn = document.querySelector("[data-edit-order]");
 const placeOrderBtn = document.querySelector("[data-place-order]");
 
 // --- Checkout state ---
@@ -638,7 +640,9 @@ const setCheckoutStep = (step) => {
     }
   }
   if (paymentSection) {
-    paymentSection.hidden = !(step === "review" && pendingOrder);
+    const showPayment = step === "review" && pendingOrder;
+    paymentSection.hidden = !showPayment;
+    if (checkoutActions) checkoutActions.hidden = showPayment;
   }
   renderDeliveryMinUI(cart);
 };
@@ -827,6 +831,7 @@ const setPaymentError = (message) => {
 const setPaymentSectionVisible = (visible) => {
   if (!paymentSection) return;
   paymentSection.hidden = !visible;
+  if (checkoutActions) checkoutActions.hidden = visible;
 };
 
 const setPayNowState = (disabled, label) => {
@@ -864,6 +869,21 @@ const loadCloverSdk = () => {
   return cloverSdkPromise;
 };
 
+const scrollCheckoutModalToBottom = () => {
+  const modalContent = checkoutModal?.querySelector(".modal__content");
+  if (modalContent) {
+    modalContent.scrollTop = modalContent.scrollHeight;
+  }
+};
+
+const setDirectPaymentFrameHeight = (height) => {
+  if (!paymentContainer) return;
+  const directFrame = paymentContainer.firstElementChild;
+  if (directFrame && directFrame.tagName === "IFRAME") {
+    directFrame.style.height = height;
+  }
+};
+
 const buildPaymentFieldsMarkup = () => {
   if (!paymentContainer || paymentContainer.dataset.ready) return;
   paymentContainer.innerHTML = `
@@ -893,6 +913,8 @@ const buildPaymentFieldsMarkup = () => {
     </div>
   `;
   paymentContainer.dataset.ready = "true";
+  setDirectPaymentFrameHeight("320px");
+  scrollCheckoutModalToBottom();
 };
 
 const bindFieldErrors = (element, errorEl) => {
@@ -957,6 +979,8 @@ const initCloverPayment = () => {
       cardCvv,
       cardPostal,
     };
+
+    scrollCheckoutModalToBottom();
 
     bindFieldErrors(cardNumber, document.querySelector("#clover-card-number-errors"));
     bindFieldErrors(cardDate, document.querySelector("#clover-card-date-errors"));
@@ -1135,6 +1159,13 @@ document.addEventListener("click", async (event) => {
 
   const backCheckout = event.target.closest("[data-checkout-back]");
   if (backCheckout) {
+    setCheckoutStep("details");
+    updateCheckoutUI();
+    return;
+  }
+
+  const editOrder = event.target.closest("[data-edit-order]");
+  if (editOrder) {
     setCheckoutStep("details");
     updateCheckoutUI();
     return;
