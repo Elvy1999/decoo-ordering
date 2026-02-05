@@ -636,21 +636,42 @@ p {
 }
 
 .payment {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed rgba(0, 0, 0, 0.2);
+  margin-top: 16px;
+  padding: 18px 18px 20px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  background: linear-gradient(140deg, #f8fafc 0%, #fff6f0 100%);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  position: relative;
   display: grid;
   gap: 14px;
+}
+
+.payment::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-radius: 16px 16px 0 0;
+  background: linear-gradient(90deg, #ff7a59, #f4c27a);
+  opacity: 0.85;
 }
 
 .payment__title {
   margin: 0;
   font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(17, 17, 17, 0.8);
 }
 
 .payment__grid {
   display: grid;
   gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .payment__row {
@@ -666,7 +687,10 @@ p {
 
 .payment__label {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(17, 17, 17, 0.7);
 }
 
 .clover-field {
@@ -675,6 +699,13 @@ p {
   border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.15);
   background: #ffffff;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.clover-field:focus-within {
+  border-color: rgba(17, 17, 17, 0.75);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
 }
 
 .input-errors {
