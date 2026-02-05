@@ -498,6 +498,11 @@ const confirmationSummary = document.querySelector("[data-confirmation-summary]"
 const confirmationTotals = document.querySelector("[data-confirmation-totals]");
 const confirmationOrderId = document.querySelector("[data-order-id]");
 const confirmationNote = document.querySelector("[data-confirmation-note]");
+const paymentSection = document.querySelector("[data-payment-section]");
+const paymentError = document.querySelector("[data-payment-error]");
+const paymentContainer = document.querySelector("#clover-payment-container");
+const payNowBtn = document.querySelector("[data-pay-now]");
+const placeOrderBtn = document.querySelector("[data-place-order]");
 
 // --- Checkout state ---
 let checkoutState = {
@@ -506,6 +511,17 @@ let checkoutState = {
   orderType: "pickup",
   address: "",
 };
+
+let pendingOrder = null;
+let cloverConfig = null;
+let cloverInstance = null;
+let cloverElements = null;
+let cloverFieldRefs = null;
+let cloverInitPromise = null;
+let cloverSdkPromise = null;
+let cloverReady = false;
+
+if (payNowBtn) payNowBtn.disabled = true;
 
 const bootstrapApp = async () => {
   await fetchSettingsAndMenu();
@@ -550,7 +566,14 @@ const setCheckoutStep = (step) => {
   if (stepDetails) stepDetails.hidden = step !== "details";
   if (stepReview) stepReview.hidden = step !== "review";
   if (checkoutStepsLabel) {
-    checkoutStepsLabel.textContent = step === "review" ? "Step 2 of 2: Review" : "Step 1 of 2: Details";
+    if (step === "review" && pendingOrder) {
+      checkoutStepsLabel.textContent = "Step 2 of 2: Review & Payment";
+    } else {
+      checkoutStepsLabel.textContent = step === "review" ? "Step 2 of 2: Review" : "Step 1 of 2: Details";
+    }
+  }
+  if (paymentSection) {
+    paymentSection.hidden = !(step === "review" && pendingOrder);
   }
   renderDeliveryMinUI(cart);
 };
@@ -633,6 +656,26 @@ const openCheckout = () => {
     syncUIAfterCartChange(cart);
   }
 
+  if (pendingOrder) {
+    if (pendingOrder.orderType) {
+      checkoutState.orderType = pendingOrder.orderType;
+    }
+    if (checkoutError) checkoutError.hidden = true;
+    showDeliveryMinWarning = false;
+    setCheckoutStep("review");
+    renderCheckoutSummary(checkoutSummary, pendingOrder.cartSnapshot || cart);
+    updateTotalsBlock(
+      checkoutTotals,
+      pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true),
+    );
+    updateCheckoutUI();
+    if (placeOrderBtn) placeOrderBtn.disabled = true;
+    setPaymentSectionVisible(true);
+    initCloverPayment();
+    openModal(checkoutModal);
+    return;
+  }
+
   if (getCartItemCount(cart) === 0) {
     alert("Your cart is empty.");
     return;
@@ -688,16 +731,193 @@ const validateCheckoutDetails = () => {
   return "";
 };
 
-const renderConfirmation = (orderId, cartSnapshot, totals) => {
+const renderConfirmation = (orderId, cartSnapshot, totals, warnings = [], orderTypeOverride = "") => {
   if (confirmationOrderId) confirmationOrderId.textContent = orderId;
   renderCheckoutSummary(confirmationSummary, cartSnapshot);
   updateTotalsBlock(confirmationTotals, totals);
   if (confirmationNote) {
-    confirmationNote.textContent =
-      checkoutState.orderType === "pickup"
-        ? "Pickup orders are typically ready within 15 minutes."
-        : "We’ll contact you when your order is ready.";
+    if (Array.isArray(warnings) && warnings.length) {
+      confirmationNote.textContent = "Order received; staff has been notified.";
+    } else {
+      const orderType = orderTypeOverride || checkoutState.orderType;
+      confirmationNote.textContent =
+        orderType === "pickup"
+          ? "Pickup orders are typically ready within 15 minutes."
+          : "We’ll contact you when your order is ready.";
+    }
   }
+};
+
+const setPaymentError = (message) => {
+  if (!paymentError) return;
+  if (!message) {
+    paymentError.textContent = "";
+    paymentError.hidden = true;
+    return;
+  }
+  paymentError.textContent = message;
+  paymentError.hidden = false;
+};
+
+const setPaymentSectionVisible = (visible) => {
+  if (!paymentSection) return;
+  paymentSection.hidden = !visible;
+};
+
+const setPayNowState = (disabled, label) => {
+  if (!payNowBtn) return;
+  payNowBtn.disabled = disabled;
+  if (label) payNowBtn.textContent = label;
+};
+
+const fetchPaymentConfig = async () => {
+  if (cloverConfig) return cloverConfig;
+  const response = await fetch("/api/payments/config");
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data || !data.ok) {
+    const message = getErrorMessage(data, "Could not load payment settings.");
+    throw new Error(message);
+  }
+  cloverConfig = { merchantId: data.merchantId, publicKey: data.publicKey };
+  return cloverConfig;
+};
+
+const loadCloverSdk = () => {
+  if (window.Clover) return Promise.resolve();
+  if (cloverSdkPromise) return cloverSdkPromise;
+  cloverSdkPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.clover.com/sdk.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Clover SDK."));
+    document.head.appendChild(script);
+  });
+  cloverSdkPromise.catch(() => {
+    cloverSdkPromise = null;
+  });
+  return cloverSdkPromise;
+};
+
+const buildPaymentFieldsMarkup = () => {
+  if (!paymentContainer || paymentContainer.dataset.ready) return;
+  paymentContainer.innerHTML = `
+    <div class="payment__grid">
+      <div class="payment__field">
+        <span class="payment__label">Card Number</span>
+        <div id="clover-card-number" class="clover-field"></div>
+        <div class="input-errors" id="clover-card-number-errors" role="alert"></div>
+      </div>
+      <div class="payment__row">
+        <div class="payment__field">
+          <span class="payment__label">Expiry</span>
+          <div id="clover-card-date" class="clover-field"></div>
+          <div class="input-errors" id="clover-card-date-errors" role="alert"></div>
+        </div>
+        <div class="payment__field">
+          <span class="payment__label">CVV</span>
+          <div id="clover-card-cvv" class="clover-field"></div>
+          <div class="input-errors" id="clover-card-cvv-errors" role="alert"></div>
+        </div>
+        <div class="payment__field">
+          <span class="payment__label">ZIP</span>
+          <div id="clover-card-postal-code" class="clover-field"></div>
+          <div class="input-errors" id="clover-card-postal-code-errors" role="alert"></div>
+        </div>
+      </div>
+    </div>
+  `;
+  paymentContainer.dataset.ready = "true";
+};
+
+const bindFieldErrors = (element, errorEl) => {
+  if (!element || !errorEl) return;
+  element.addEventListener("change", (event) => {
+    if (event?.error && event.error.message) {
+      errorEl.textContent = event.error.message;
+      return;
+    }
+    errorEl.textContent = "";
+  });
+};
+
+const initCloverPayment = () => {
+  if (cloverReady) return Promise.resolve();
+  if (cloverInitPromise) return cloverInitPromise;
+
+  cloverInitPromise = (async () => {
+    setPayNowState(true, "Loading payment...");
+    setPaymentError("");
+
+    const config = await fetchPaymentConfig();
+    await loadCloverSdk();
+    buildPaymentFieldsMarkup();
+
+    if (!window.Clover) {
+      throw new Error("Payment SDK unavailable.");
+    }
+
+    cloverInstance = new window.Clover(config.publicKey);
+    cloverElements = cloverInstance.elements();
+
+    const styleOptions = {
+      styles: {
+        base: {
+          color: "#111111",
+          fontSize: "16px",
+          fontFamily: '"Source Sans 3", sans-serif',
+        },
+        placeholder: {
+          color: "rgba(0, 0, 0, 0.4)",
+        },
+        invalid: {
+          color: "#8e1c1c",
+        },
+      },
+    };
+
+    const cardNumber = cloverElements.create("CARD_NUMBER", styleOptions);
+    const cardDate = cloverElements.create("CARD_DATE", styleOptions);
+    const cardCvv = cloverElements.create("CARD_CVV", styleOptions);
+    const cardPostal = cloverElements.create("CARD_POSTAL_CODE", styleOptions);
+
+    cardNumber.mount("#clover-card-number");
+    cardDate.mount("#clover-card-date");
+    cardCvv.mount("#clover-card-cvv");
+    cardPostal.mount("#clover-card-postal-code");
+
+    cloverFieldRefs = {
+      cardNumber,
+      cardDate,
+      cardCvv,
+      cardPostal,
+    };
+
+    bindFieldErrors(cardNumber, document.querySelector("#clover-card-number-errors"));
+    bindFieldErrors(cardDate, document.querySelector("#clover-card-date-errors"));
+    bindFieldErrors(cardCvv, document.querySelector("#clover-card-cvv-errors"));
+    bindFieldErrors(cardPostal, document.querySelector("#clover-card-postal-code-errors"));
+
+    cloverReady = true;
+    setPayNowState(false, "Pay Now");
+  })()
+    .catch((error) => {
+      console.error("[payment] Clover init failed", error);
+      setPaymentError("Payment form could not load. Please try again.");
+      setPayNowState(true, "Pay Now");
+    })
+    .finally(() => {
+      cloverInitPromise = null;
+    });
+
+  return cloverInitPromise;
+};
+
+const resetPaymentUI = () => {
+  setPaymentError("");
+  setPaymentSectionVisible(false);
+  if (placeOrderBtn) placeOrderBtn.disabled = false;
+  setPayNowState(!cloverReady, "Pay Now");
 };
 
 // --- Modal wiring ---
@@ -763,6 +983,7 @@ document.addEventListener("click", async (event) => {
 
   const setOrderTypeButton = event.target.closest("[data-set-order-type]");
   if (setOrderTypeButton) {
+    if (pendingOrder) return;
     const nextType = setOrderTypeButton.dataset.setOrderType;
     if (nextType === "delivery" && !appSettings.deliveryEnabled) return;
     if (nextType) {
@@ -780,6 +1001,21 @@ document.addEventListener("click", async (event) => {
 
   const continueCheckout = event.target.closest("[data-checkout-continue]");
   if (continueCheckout) {
+    if (pendingOrder) {
+      if (pendingOrder.orderType) {
+        checkoutState.orderType = pendingOrder.orderType;
+      }
+      setCheckoutStep("review");
+      renderCheckoutSummary(checkoutSummary, pendingOrder.cartSnapshot || cart);
+      updateTotalsBlock(
+        checkoutTotals,
+        pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true),
+      );
+      updateCheckoutUI();
+      setPaymentSectionVisible(true);
+      initCloverPayment();
+      return;
+    }
     readCheckoutFields();
     const errorMessage = validateCheckoutDetails();
     if (errorMessage) {
@@ -838,8 +1074,90 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const payNow = event.target.closest("[data-pay-now]");
+  if (payNow) {
+    if (!pendingOrder) {
+      setPaymentError("Please place your order first.");
+      return;
+    }
+
+    setPaymentError("");
+    setPayNowState(true, "Processing...");
+    payNow.setAttribute("aria-busy", "true");
+
+    try {
+      await initCloverPayment();
+
+      if (!cloverInstance) {
+        throw new Error("Payment is unavailable.");
+      }
+
+      const tokenResult = await cloverInstance.createToken();
+      const sourceId = tokenResult?.token;
+      const tokenError =
+        tokenResult?.errors?.[0]?.message || tokenResult?.error?.message || tokenResult?.error || "";
+
+      if (!sourceId) {
+        setPaymentError(tokenError || "Please check your card details and try again.");
+        return;
+      }
+      if (!sourceId.startsWith("clv_")) {
+        setPaymentError("Payment token is invalid. Please try again.");
+        return;
+      }
+
+      const response = await fetch("/api/payments/iframe/charge", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          order_id: pendingOrder.order_id,
+          source_id: sourceId,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data || !data.ok) {
+        const message = data?.error || getErrorMessage(data, "Payment was declined. Please try another card.");
+        setPaymentError(message);
+        return;
+      }
+
+      const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+      renderConfirmation(
+        pendingOrder.order_code,
+        pendingOrder.cartSnapshot,
+        pendingOrder.totals,
+        warnings,
+        pendingOrder.orderType,
+      );
+      clearCart();
+      closeModal(checkoutModal);
+      openModal(confirmationModal);
+      pendingOrder = null;
+      resetPaymentUI();
+    } catch (error) {
+      setPaymentError("Payment could not be processed. Please try again.");
+    } finally {
+      payNow.removeAttribute("aria-busy");
+      setPayNowState(!cloverReady, "Pay Now");
+    }
+    return;
+  }
+
   const placeOrder = event.target.closest("[data-place-order]");
   if (placeOrder) {
+    if (pendingOrder) {
+      if (checkoutError) {
+        checkoutError.textContent = "Payment is already started. Please complete payment below.";
+        checkoutError.hidden = false;
+      }
+      setCheckoutStep("review");
+      setPaymentSectionVisible(true);
+      initCloverPayment();
+      return;
+    }
     if (getCartItemCount(cart) === 0) {
       alert("Your cart is empty.");
       return;
@@ -886,19 +1204,43 @@ document.addEventListener("click", async (event) => {
         return;
       }
 
-      const orderId = data.order_code || `DCO-${Math.floor(10000 + Math.random() * 90000)}`;
-      renderConfirmation(orderId, cartSnapshot, totals);
-      clearCart();
-      closeModal(checkoutModal);
-      openModal(confirmationModal);
+      if (!data.order_id) {
+        throw new Error("Order id missing from server response.");
+      }
+
+      const serverTotal = Number(data.total_cents) / 100;
+      if (Number.isFinite(serverTotal) && Math.abs(serverTotal - totals.total) > 0.009) {
+        totals.total = serverTotal;
+      }
+
+      pendingOrder = {
+        order_id: data.order_id,
+        order_code: data.order_code || `DCO-${Math.floor(10000 + Math.random() * 90000)}`,
+        total_cents: data.total_cents,
+        cartSnapshot,
+        totals,
+        orderType: checkoutState.orderType,
+      };
+
+      setPaymentError("");
+      if (checkoutError) checkoutError.hidden = true;
+      setCheckoutStep("review");
+      updateTotalsBlock(checkoutTotals, totals);
+      if (placeOrderBtn) placeOrderBtn.disabled = true;
+      setPaymentSectionVisible(true);
+      initCloverPayment();
     } catch (error) {
       if (checkoutError) {
         checkoutError.textContent = "Could not place order. Please try again.";
         checkoutError.hidden = false;
       }
     } finally {
-      placeOrder.disabled = false;
-      placeOrder.removeAttribute("aria-busy");
+      if (!pendingOrder) {
+        placeOrder.disabled = false;
+        placeOrder.removeAttribute("aria-busy");
+      } else {
+        placeOrder.removeAttribute("aria-busy");
+      }
     }
     return;
   }

@@ -635,6 +635,61 @@ p {
   gap: 12px;
 }
 
+.payment {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.2);
+  display: grid;
+  gap: 14px;
+}
+
+.payment__title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.payment__grid {
+  display: grid;
+  gap: 12px;
+}
+
+.payment__row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.payment__field {
+  display: grid;
+  gap: 6px;
+}
+
+.payment__label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.clover-field {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: #ffffff;
+}
+
+.input-errors {
+  min-height: 1em;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #8e1c1c;
+}
+
+@media (max-width: 720px) {
+  .payment__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .confirmation-note {
   margin-top: 16px;
   font-weight: 600;

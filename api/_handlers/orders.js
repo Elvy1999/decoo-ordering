@@ -213,6 +213,7 @@ export default async function handler(req, res) {
         delivery_fee_cents: deliveryFeeCents,
         total_cents: totalCents,
         order_code: orderCode,
+        payment_status: "unpaid",
       })
       .select("id,order_code,total_cents")
       .single();
@@ -245,7 +246,12 @@ export default async function handler(req, res) {
     }
     console.log("[order]", orderLog);
 
-    return ok(res, { ok: true, order_code: finalOrderCode, total_cents: finalTotalCents });
+    return ok(res, {
+      ok: true,
+      order_id: order.id,
+      order_code: finalOrderCode,
+      total_cents: finalTotalCents,
+    });
   } catch (err) {
     console.error("Order processing failed:", err);
     return fail(res, 500, "ORDER_FAILED", "Could not place order. Please try again.");
