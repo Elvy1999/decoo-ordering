@@ -436,15 +436,26 @@ const updateCartBar = (cartState) => {
   });
 };
 
+let lastSyncedCartSnapshot = {};
+
 // Centralized UI refresh for any cart mutation.
 const syncUIAfterCartChange = (cartState, changedId) => {
+  const previousSnapshot = lastSyncedCartSnapshot || {};
+  let cartChanged = Boolean(changedId);
+
   const sanitizedCart = sanitizeCartForStock(cartState);
   if (!areCartsEqual(cartState, sanitizedCart)) {
     cart = sanitizedCart;
     saveCart(cart);
     cartState = cart;
     changedId = null;
+    cartChanged = true;
   }
+
+  if (!cartChanged && !areCartsEqual(previousSnapshot, cartState)) {
+    cartChanged = true;
+  }
+
   if (changedId) {
     updateMenuItemQtyById(changedId, getQty(cartState, changedId));
   } else {
@@ -462,6 +473,17 @@ const syncUIAfterCartChange = (cartState, changedId) => {
     }
   }
   renderDeliveryMinUI(cartState);
+
+  if (isCheckoutOpen() && isReviewStepActive()) {
+    renderCheckoutSummary(checkoutSummary, cartState);
+    updateTotalsBlock(checkoutTotals, calculateTotals(cartState, checkoutState.orderType, true));
+  }
+
+  if (pendingOrder && cartChanged) {
+    resetPendingPaymentUI("You changed your order. Please place the order again to continue to payment.");
+  }
+
+  lastSyncedCartSnapshot = { ...cartState };
 };
 
 let cart = {};
@@ -552,6 +574,49 @@ const scrollToDrinksSection = () => {
   if (!target) return;
   target.scrollIntoView({ behavior: "smooth", block: "start" });
 };
+
+function isCheckoutOpen() {
+  return checkoutModal?.classList.contains("is-open");
+}
+
+function isReviewStepActive() {
+  const stepReview = document.querySelector('[data-checkout-step="review"]');
+  return stepReview && !stepReview.hidden;
+}
+
+function resetPendingPaymentUI(message) {
+  pendingOrder = null;
+  setPaymentError("");
+  setPaymentSectionVisible(false);
+  if (placeOrderBtn) {
+    placeOrderBtn.disabled = false;
+    placeOrderBtn.removeAttribute("aria-busy");
+  }
+
+  if (paymentContainer) {
+    paymentContainer.innerHTML = "";
+    delete paymentContainer.dataset.ready;
+  }
+  cloverFieldRefs = null;
+  cloverElements = null;
+  cloverInstance = null;
+  cloverReady = false;
+  setPayNowState(!cloverReady, "Pay Now");
+
+  if (checkoutError) {
+    if (message) {
+      checkoutError.textContent = message;
+      checkoutError.hidden = false;
+    } else {
+      checkoutError.textContent = "";
+      checkoutError.hidden = true;
+    }
+  }
+
+  if (isReviewStepActive()) {
+    setCheckoutStep("review");
+  }
+}
 
 // --- Checkout flow ---
 const hydrateCheckoutInputsFromState = () => {
@@ -983,17 +1048,18 @@ document.addEventListener("click", async (event) => {
 
   const setOrderTypeButton = event.target.closest("[data-set-order-type]");
   if (setOrderTypeButton) {
-    if (pendingOrder) return;
     const nextType = setOrderTypeButton.dataset.setOrderType;
     if (nextType === "delivery" && !appSettings.deliveryEnabled) return;
-    if (nextType) {
+    if (nextType && nextType !== checkoutState.orderType) {
       checkoutState.orderType = nextType;
       updateCheckoutUI();
       updateCartTotals(cart);
       updateCartBar(cart);
-      const stepReview = document.querySelector('[data-checkout-step="review"]');
-      if (stepReview && !stepReview.hidden) {
+      if (isCheckoutOpen() && isReviewStepActive()) {
         updateTotalsBlock(checkoutTotals, calculateTotals(cart, checkoutState.orderType, true));
+      }
+      if (pendingOrder) {
+        resetPendingPaymentUI("Order type changed. Please place the order again to continue to payment.");
       }
     }
     return;
