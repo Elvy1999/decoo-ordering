@@ -1,5 +1,5 @@
-import { ok, fail, methodNotAllowed, supabaseServerClient } from "../_shared.js";
-import { requireAdmin } from "./_auth.js";
+import { ok, fail, methodNotAllowed, supabaseServerClient } from "../shared.js";
+import { requireAdmin } from "./auth.js";
 
 const ORDER_FIELDS =
   "id,created_at,order_code,customer_name,customer_phone,fulfillment_type,delivery_address,subtotal_cents,processing_fee_cents,delivery_fee_cents,total_cents";

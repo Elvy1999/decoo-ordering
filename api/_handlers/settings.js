@@ -1,4 +1,4 @@
-import { ok, fail, methodNotAllowed, supabaseServerClient, fetchSettings } from "./_shared.js";
+import { ok, fail, methodNotAllowed, supabaseServerClient, fetchSettings } from "./shared.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return methodNotAllowed(res, ["GET"]);
