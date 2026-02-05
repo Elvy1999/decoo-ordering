@@ -674,12 +674,11 @@ p {
 .payment__grid {
   display: grid;
   gap: 12px;
-  padding: 12px;
 }
 
 .payment__row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
 
@@ -697,13 +696,25 @@ p {
 }
 
 .clover-field {
-  min-height: 48px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid #d0d5dd;
+  height: 44px;
+  border-radius: 12px;
+  overflow: hidden;
   background: #fff;
+  border: 1px solid #d0d5dd;
   box-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.06);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.clover-field iframe {
+  width: 100% !important;
+  height: 44px !important;
+  border: 0 !important;
+  display: block !important;
+}
+
+#clover-card-number.clover-field,
+#clover-card-number iframe {
+  height: 48px !important;
 }
 
 .clover-field:focus-within {
@@ -737,15 +748,13 @@ p {
   background: rgba(0, 0, 0, 0.04);
 }
 
-@media (max-width: 720px) {
-  .payment__row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 @media (max-width: 480px) {
   .payment {
     padding: 12px;
+  }
+
+  .payment__row {
+    grid-template-columns: 1fr;
   }
 
   .payment__frame > iframe {

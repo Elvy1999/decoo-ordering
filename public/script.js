@@ -876,14 +876,6 @@ const scrollCheckoutModalToBottom = () => {
   }
 };
 
-const setDirectPaymentFrameHeight = (height) => {
-  if (!paymentContainer) return;
-  const directFrame = paymentContainer.firstElementChild;
-  if (directFrame && directFrame.tagName === "IFRAME") {
-    directFrame.style.height = height;
-  }
-};
-
 const buildPaymentFieldsMarkup = () => {
   if (!paymentContainer || paymentContainer.dataset.ready) return;
   paymentContainer.innerHTML = `
@@ -913,7 +905,6 @@ const buildPaymentFieldsMarkup = () => {
     </div>
   `;
   paymentContainer.dataset.ready = "true";
-  setDirectPaymentFrameHeight("320px");
   scrollCheckoutModalToBottom();
 };
 
@@ -951,7 +942,8 @@ const initCloverPayment = () => {
       styles: {
         base: {
           color: "#111111",
-          fontSize: "16px",
+          fontSize: "14px",
+          lineHeight: "20px",
           fontFamily: '"Source Sans 3", sans-serif',
         },
         placeholder: {
