@@ -1201,14 +1201,16 @@ document.addEventListener("click", async (event) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          order_id: pendingOrder.order_id,
+          order_id: String(pendingOrder.order_id),
           source_id: sourceId,
+          orderId: String(pendingOrder.order_id),
+          sourceId: sourceId,
         }),
       });
 
       const data = await response.json().catch(() => null);
       if (!response.ok || !data || !data.ok) {
-        const message = data?.error || getErrorMessage(data, "Payment was declined. Please try another card.");
+        const message = getErrorMessage(data, "Payment was declined. Please try another card.");
         setPaymentError(message);
         return;
       }

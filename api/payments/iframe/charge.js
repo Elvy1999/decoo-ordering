@@ -63,8 +63,11 @@ export default async function handler(req, res) {
     return fail(res, 400, "VALIDATION_ERROR", "Invalid request body.");
   }
 
-  const orderId = typeof req.body.order_id === "string" ? req.body.order_id.trim() : "";
-  const sourceId = typeof req.body.source_id === "string" ? req.body.source_id.trim() : "";
+  const rawOrderId = req.body?.order_id ?? req.body?.orderId ?? "";
+  const orderId = String(rawOrderId).trim();
+
+  const rawSourceId = req.body?.source_id ?? req.body?.sourceId ?? "";
+  const sourceId = String(rawSourceId).trim();
 
   if (!isNonEmptyString(orderId)) {
     return fail(res, 400, "VALIDATION_ERROR", "order_id is required.");
