@@ -696,7 +696,7 @@ p {
 }
 
 .clover-field {
-  min-height: 38px;
+  min-height: 30px;
   border-radius: 10px;
   padding: 0 12px;
   overflow: hidden;
@@ -712,16 +712,16 @@ p {
 
 .clover-field iframe {
   width: 100% !important;
-  min-height: 38px !important;
-  height: 38px !important;
+  min-height: 30px !important;
+  height: 30px !important;
   border: 0 !important;
   display: block !important;
 }
 
 #clover-card-number.clover-field,
 #clover-card-number iframe {
-  min-height: 38px !important;
-  height: 38px !important;
+  min-height: 30px !important;
+  height: 30px !important;
 }
 
 #clover-card-number,
