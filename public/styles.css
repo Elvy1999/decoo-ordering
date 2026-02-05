@@ -637,16 +637,16 @@ p {
 
 .payment {
   margin-top: 16px;
-  padding: 14px;
+  padding: 18px;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 12px;
   background: #fff;
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .payment__title {
-  margin: 0 0 10px;
+  margin: 0;
   font-weight: 700;
 }
 
@@ -654,11 +654,11 @@ p {
   width: 100%;
   max-width: 520px;
   margin: 0 auto;
+  padding: 16px;
   border-radius: 12px;
-  overflow: hidden;
-  background: #fafafa;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  min-height: 200px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  min-height: 0;
 }
 
 .payment__frame iframe {
@@ -673,18 +673,18 @@ p {
 
 .payment__grid {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .payment__row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: 14px;
 }
 
 .payment__field {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .payment__label {
@@ -696,8 +696,9 @@ p {
 }
 
 .clover-field {
-  height: 20px;
-  border-radius: 12px;
+  min-height: 46px;
+  border-radius: 10px;
+  padding: 0 12px;
   overflow: hidden;
   background: #fff;
   border: 1px solid #d0d5dd;
@@ -711,22 +712,22 @@ p {
 
 .clover-field iframe {
   width: 100% !important;
-  height: 20px !important;
+  min-height: 46px !important;
+  height: 46px !important;
   border: 0 !important;
   display: block !important;
 }
 
 #clover-card-number.clover-field,
 #clover-card-number iframe {
-  height: 20px !important;
+  min-height: 46px !important;
+  height: 46px !important;
 }
 
 #clover-card-number,
 #clover-card-date,
 #clover-card-cvv,
 #clover-card-postal-code {
-  padding-left: 10px;
-  padding-right: 10px;
   box-sizing: border-box;
 }
 
@@ -763,11 +764,15 @@ p {
 
 @media (max-width: 480px) {
   .payment {
-    padding: 12px;
+    padding: 14px;
   }
 
   .payment__row {
     grid-template-columns: 1fr;
+  }
+
+  .payment__frame {
+    padding: 12px;
   }
 
   .payment__frame > iframe {
