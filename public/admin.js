@@ -9,6 +9,12 @@ if (!createClient) {
 
 const TOKEN_KEY = "ADMIN_TOKEN";
 const REALTIME_CHANNEL = "admin-orders";
+const ADMIN_API_BASE = "/api/admin";
+const ADMIN_SETTINGS_PATH = `${ADMIN_API_BASE}/settings`;
+const ADMIN_MENU_PATH = `${ADMIN_API_BASE}/menu`;
+const ADMIN_MENU_ITEM_PATH = `${ADMIN_API_BASE}/menu-item`;
+const ADMIN_ORDERS_PATH = `${ADMIN_API_BASE}/orders`;
+const ADMIN_ORDER_PATH = `${ADMIN_API_BASE}/order`;
 
 const newOrderSound = new Audio("/order_sound.mp3");
 newOrderSound.volume = 0.7;
@@ -108,7 +114,7 @@ const apiFetch = async (path, { method = "GET", body } = {}) => {
 
 const validateToken = async (token) => {
   if (!token) throw new Error("Invalid token");
-  const response = await fetch("/api/admin?route=settings", {
+  const response = await fetch(ADMIN_SETTINGS_PATH, {
     method: "GET",
     headers: { "x-admin-token": token },
   });
@@ -143,7 +149,7 @@ const fillSettingsForm = (settings) => {
 const loadSettings = async () => {
   setSettingsStatus("Loading...");
   try {
-    const settings = await apiFetch("/api/admin?route=settings");
+    const settings = await apiFetch(ADMIN_SETTINGS_PATH);
     fillSettingsForm(settings);
     setSettingsStatus("Loaded");
   } catch (error) {
@@ -165,7 +171,7 @@ const saveSettings = async (event) => {
       delivery_fee_cents: Number(settingsForm.delivery_fee_cents.value || 0),
       delivery_min_total_cents: Number(settingsForm.delivery_min_total_cents.value || 0),
     };
-    const updated = await apiFetch("/api/admin?route=settings", { method: "PATCH", body: payload });
+    const updated = await apiFetch(ADMIN_SETTINGS_PATH, { method: "PATCH", body: payload });
     fillSettingsForm(updated);
     setSettingsStatus("Saved");
     showToast("Settings updated.");
@@ -179,7 +185,7 @@ const saveSettings = async (event) => {
 
 const loadMenu = async () => {
   try {
-    menuItems = await apiFetch("/api/admin?route=menu");
+    menuItems = await apiFetch(ADMIN_MENU_PATH);
     renderMenu();
   } catch (error) {
     showToast(error.message || "Failed to load menu.", "error");
@@ -353,7 +359,7 @@ const buildMenuItemCard = (item) => {
         is_active: activeInput.checked,
         in_stock: stockInput.checked,
       };
-      const updated = await apiFetch("/api/admin?route=menu-item", { method: "PATCH", body: payload });
+      const updated = await apiFetch(ADMIN_MENU_ITEM_PATH, { method: "PATCH", body: payload });
       menuItems = menuItems.map((row) => (row.id === updated.id ? updated : row));
       renderMenu();
       showToast("Menu item updated.");
@@ -373,7 +379,7 @@ const buildMenuItemCard = (item) => {
 
 const loadOrders = async () => {
   try {
-    orders = await apiFetch("/api/admin?route=orders");
+    orders = await apiFetch(ADMIN_ORDERS_PATH, { method: "POST" });
     renderOrders();
   } catch (error) {
     showToast(error.message || "Failed to load orders.", "error");
@@ -493,7 +499,7 @@ const renderOrders = () => {
 
 const loadOrderDetail = async (id) => {
   try {
-    const data = await apiFetch(`/api/admin?route=order&id=${id}`);
+    const data = await apiFetch(`${ADMIN_ORDER_PATH}?id=${id}`);
     renderOrderDetail(data.order, data.items);
   } catch (error) {
     showToast(error.message || "Failed to load order.", "error");
@@ -545,7 +551,7 @@ const renderOrderDetail = (order, items) => {
     statusBtn.addEventListener("click", async () => {
       statusBtn.disabled = true;
       try {
-        const updated = await apiFetch("/api/admin?route=order", {
+        const updated = await apiFetch(ADMIN_ORDER_PATH, {
           method: "PATCH",
           body: { id: order.id, status: statusInput.value.trim() },
         });
