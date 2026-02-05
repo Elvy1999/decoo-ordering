@@ -135,11 +135,11 @@ const getCartSubtotal = (cartState) =>
     return sum + item.price * qty;
   }, 0);
 
-const calculateTotals = (cartState, orderType = "pickup", includeDeliveryFee = false) => {
+const calculateTotals = (cartState, orderType = "pickup", includeDeliveryFee = false, includeFees = false) => {
   const subtotal = getCartSubtotal(cartState);
-  const processingFee = subtotal > 0 ? appSettings?.processingFee || 0 : 0;
+  const processingFee = includeFees && subtotal > 0 ? appSettings?.processingFee || 0 : 0;
   const deliveryFee = orderType === "delivery" && includeDeliveryFee ? appSettings?.deliveryFee || 0 : 0;
-  const tax = 0;
+  const tax = includeFees ? 0 : 0;
   const total = subtotal + processingFee + deliveryFee + tax;
   return { subtotal, processingFee, deliveryFee, tax, total };
 };
@@ -354,7 +354,12 @@ const updateMenuItemQtyById = (id, qty) => {
 const updateCartTotals = (cartState) => {
   const totalsEl = document.querySelector("[data-cart-totals]");
   if (!totalsEl) return;
-  const { subtotal, processingFee, deliveryFee, tax, total } = calculateTotals(cartState, checkoutState.orderType);
+  const { subtotal, processingFee, deliveryFee, tax, total } = calculateTotals(
+    cartState,
+    checkoutState.orderType,
+    false,
+    false,
+  );
   const subtotalEl = totalsEl.querySelector("[data-subtotal]");
   const feeEl = totalsEl.querySelector("[data-fee]");
   const deliveryEl = totalsEl.querySelector("[data-delivery-fee]");
@@ -362,13 +367,18 @@ const updateCartTotals = (cartState) => {
   const totalEl = totalsEl.querySelector("[data-total]");
   if (subtotalEl) subtotalEl.textContent = formatMoney(subtotal);
   if (feeEl) feeEl.textContent = formatMoney(processingFee);
-  if (deliveryEl) {
-    deliveryEl.textContent = formatMoney(deliveryFee);
-    const deliveryRow = deliveryEl.closest(".totals__row");
-    if (deliveryRow) deliveryRow.hidden = true;
-  }
+  if (deliveryEl) deliveryEl.textContent = formatMoney(deliveryFee);
   if (taxEl) taxEl.textContent = formatMoney(tax);
   if (totalEl) totalEl.textContent = formatMoney(total);
+
+  const feeRow = feeEl?.closest(".totals__row");
+  if (feeRow) feeRow.hidden = true;
+
+  const taxRow = taxEl?.closest(".totals__row");
+  if (taxRow) taxRow.hidden = true;
+
+  const deliveryRow = deliveryEl?.closest(".totals__row");
+  if (deliveryRow) deliveryRow.hidden = true;
 };
 
 const updateTotalsBlock = (container, totals) => {
@@ -417,10 +427,10 @@ const updateCartBar = (cartState) => {
   const countEl = cartBar.querySelector("[data-cart-count]");
   const totalEl = cartBar.querySelector("[data-cart-total]");
   const itemCount = getCartItemCount(cartState);
-  const { total } = calculateTotals(cartState, checkoutState.orderType);
+  const { subtotal } = calculateTotals(cartState, checkoutState.orderType, false, false);
 
   if (countEl) countEl.textContent = itemCount;
-  if (totalEl) totalEl.textContent = formatMoney(total);
+  if (totalEl) totalEl.textContent = formatMoney(subtotal);
 
   if (itemCount === 0) {
     cartBar.hidden = true;
@@ -476,7 +486,7 @@ const syncUIAfterCartChange = (cartState, changedId) => {
 
   if (isCheckoutOpen() && isReviewStepActive()) {
     renderCheckoutSummary(checkoutSummary, cartState);
-    updateTotalsBlock(checkoutTotals, calculateTotals(cartState, checkoutState.orderType, true));
+    updateTotalsBlock(checkoutTotals, calculateTotals(cartState, checkoutState.orderType, true, true));
   }
 
   if (pendingOrder && cartChanged) {
@@ -735,7 +745,7 @@ const openCheckout = () => {
     renderCheckoutSummary(checkoutSummary, pendingOrder.cartSnapshot || cart);
     updateTotalsBlock(
       checkoutTotals,
-      pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true),
+      pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true, true),
     );
     updateCheckoutUI();
     if (placeOrderBtn) placeOrderBtn.disabled = true;
@@ -945,6 +955,7 @@ const initCloverPayment = () => {
           fontSize: "14px",
           lineHeight: "20px",
           fontFamily: '"Source Sans 3", sans-serif',
+          padding: "10px",
         },
         placeholder: {
           color: "rgba(0, 0, 0, 0.4)",
@@ -1072,7 +1083,7 @@ document.addEventListener("click", async (event) => {
       updateCartTotals(cart);
       updateCartBar(cart);
       if (isCheckoutOpen() && isReviewStepActive()) {
-        updateTotalsBlock(checkoutTotals, calculateTotals(cart, checkoutState.orderType, true));
+        updateTotalsBlock(checkoutTotals, calculateTotals(cart, checkoutState.orderType, true, true));
       }
       if (pendingOrder) {
         resetPendingPaymentUI("Order type changed. Please place the order again to continue to payment.");
@@ -1091,7 +1102,7 @@ document.addEventListener("click", async (event) => {
       renderCheckoutSummary(checkoutSummary, pendingOrder.cartSnapshot || cart);
       updateTotalsBlock(
         checkoutTotals,
-        pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true),
+        pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true, true),
       );
       updateCheckoutUI();
       setPaymentSectionVisible(true);
@@ -1145,7 +1156,7 @@ document.addEventListener("click", async (event) => {
     if (checkoutError) checkoutError.hidden = true;
     setCheckoutStep("review");
     renderCheckoutSummary(checkoutSummary, cart);
-    updateTotalsBlock(checkoutTotals, calculateTotals(cart, checkoutState.orderType, true));
+    updateTotalsBlock(checkoutTotals, calculateTotals(cart, checkoutState.orderType, true, true));
     return;
   }
 
@@ -1158,8 +1169,14 @@ document.addEventListener("click", async (event) => {
 
   const editOrder = event.target.closest("[data-edit-order]");
   if (editOrder) {
-    setCheckoutStep("details");
-    updateCheckoutUI();
+    // Close checkout + open cart so user can change items
+    closeModal(checkoutModal);
+    openModal(cartModal);
+
+    // Also reset any pending payment state so they must place order again
+    if (pendingOrder) {
+      resetPendingPaymentUI("");
+    }
     return;
   }
 
@@ -1265,7 +1282,7 @@ document.addEventListener("click", async (event) => {
     if (checkoutError) checkoutError.hidden = true;
 
     const cartSnapshot = { ...cart };
-    const totals = calculateTotals(cartSnapshot, checkoutState.orderType, true);
+    const totals = calculateTotals(cartSnapshot, checkoutState.orderType, true, true);
     const payload = {
       customer_name: checkoutState.name,
       customer_phone: checkoutState.phone,
