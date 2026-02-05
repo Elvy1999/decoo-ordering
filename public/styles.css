@@ -696,7 +696,7 @@ p {
 }
 
 .clover-field {
-  height: 26px;
+  height: 20px;
   border-radius: 12px;
   overflow: hidden;
   background: #fff;
@@ -711,14 +711,14 @@ p {
 
 .clover-field iframe {
   width: 100% !important;
-  height: 26px !important;
+  height: 20px !important;
   border: 0 !important;
   display: block !important;
 }
 
 #clover-card-number.clover-field,
 #clover-card-number iframe {
-  height: 26px !important;
+  height: 20px !important;
 }
 
 #clover-card-number,
