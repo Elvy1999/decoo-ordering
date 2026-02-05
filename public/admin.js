@@ -9,12 +9,13 @@ if (!createClient) {
 
 const TOKEN_KEY = "ADMIN_TOKEN";
 const REALTIME_CHANNEL = "admin-orders";
-const ADMIN_API_BASE = "/api/admin";
-const ADMIN_SETTINGS_PATH = `${ADMIN_API_BASE}/settings`;
-const ADMIN_MENU_PATH = `${ADMIN_API_BASE}/menu`;
-const ADMIN_MENU_ITEM_PATH = `${ADMIN_API_BASE}/menu-item`;
-const ADMIN_ORDERS_PATH = `${ADMIN_API_BASE}/orders`;
-const ADMIN_ORDER_PATH = `${ADMIN_API_BASE}/order`;
+// In api/[...route].js, admin handlers are addressed via route=admin/<endpoint>.
+const ADMIN_ROUTE_BASE = "/api/admin?route=admin/";
+const ADMIN_SETTINGS_PATH = `${ADMIN_ROUTE_BASE}settings`;
+const ADMIN_MENU_PATH = `${ADMIN_ROUTE_BASE}menu`;
+const ADMIN_MENU_ITEM_PATH = `${ADMIN_ROUTE_BASE}menu-item`;
+const ADMIN_ORDERS_PATH = `${ADMIN_ROUTE_BASE}orders`;
+const ADMIN_ORDER_PATH = `${ADMIN_ROUTE_BASE}order`;
 
 const newOrderSound = new Audio("/order_sound.mp3");
 newOrderSound.volume = 0.7;
@@ -87,10 +88,10 @@ const handleUnauthorized = () => {
   showToast("Session expired. Please log in again.", "error");
 };
 
-const apiFetch = async (path, { method = "GET", body } = {}) => {
+const apiFetch = async (path, { method = "GET", body, token, suppressUnauthorizedHandler = false } = {}) => {
   const headers = {};
-  const token = getToken();
-  if (token) headers["x-admin-token"] = token;
+  const authToken = token ?? getToken();
+  if (authToken) headers["x-admin-token"] = authToken;
   let payload;
   if (body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -99,28 +100,58 @@ const apiFetch = async (path, { method = "GET", body } = {}) => {
 
   const response = await fetch(path, { method, headers, body: payload });
   if (response.status === 401) {
-    handleUnauthorized();
-    throw new Error("Unauthorized");
+    if (!suppressUnauthorizedHandler) handleUnauthorized();
+    const error = new Error("Unauthorized");
+    error.status = 401;
+    throw error;
   }
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
+  }
   if (!response.ok) {
     const message = data?.error?.message || `Request failed (${response.status})`;
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
   return data;
 };
 
 const validateToken = async (token) => {
-  if (!token) throw new Error("Invalid token");
-  const response = await fetch(ADMIN_SETTINGS_PATH, {
-    method: "GET",
-    headers: { "x-admin-token": token },
-  });
-  if (!response.ok) {
-    throw new Error(response.status === 401 ? "Unauthorized" : "Invalid token");
+  if (!token) {
+    const error = new Error("Invalid token");
+    error.status = 401;
+    throw error;
   }
+
+  try {
+    await apiFetch(ADMIN_SETTINGS_PATH, { token, suppressUnauthorizedHandler: true });
+  } catch (error) {
+    if (error?.status === 401) {
+      const mapped = new Error("Invalid token");
+      mapped.status = 401;
+      throw mapped;
+    }
+    if (error?.status === 404) {
+      const mapped = new Error("Admin API route not found");
+      mapped.status = 404;
+      throw mapped;
+    }
+    if (typeof error?.status === "number" && error.status >= 500) {
+      const mapped = new Error("Server error");
+      mapped.status = error.status;
+      throw mapped;
+    }
+    throw error;
+  }
+
   return true;
 };
 
@@ -499,7 +530,7 @@ const renderOrders = () => {
 
 const loadOrderDetail = async (id) => {
   try {
-    const data = await apiFetch(`${ADMIN_ORDER_PATH}?id=${id}`);
+    const data = await apiFetch(`${ADMIN_ORDER_PATH}&id=${id}`);
     renderOrderDetail(data.order, data.items);
   } catch (error) {
     showToast(error.message || "Failed to load order.", "error");
@@ -580,7 +611,7 @@ const initialize = async () => {
     } catch (error) {
       sessionStorage.removeItem(TOKEN_KEY);
       setAuthState(false);
-      showToast("Invalid token", "error");
+      showToast(error.message || "Invalid token", "error");
     }
   }
 };
@@ -605,7 +636,7 @@ loginBtn.addEventListener("click", async () => {
   } catch (error) {
     sessionStorage.removeItem(TOKEN_KEY);
     setAuthState(false);
-    showToast("Invalid token", "error");
+    showToast(error.message || "Invalid token", "error");
   } finally {
     loginBtn.disabled = false;
   }
