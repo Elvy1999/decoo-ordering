@@ -57,6 +57,46 @@ const toNumber = (value) => {
   return Number.isFinite(num) ? num : 0;
 };
 
+const toNullableNumber = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+const normalizeReason = (reason) => {
+  if (!reason) return "PAYMENT_DECLINED";
+  const text = String(reason).trim();
+  if (!text) return "PAYMENT_DECLINED";
+  const normalized = text
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 120);
+  return normalized || "PAYMENT_DECLINED";
+};
+
+const paymentRequired = (res, details) => {
+  const payload = {
+    error: {
+      code: "PAYMENT_REQUIRED",
+      reason: normalizeReason(details?.reason),
+      order_id: details?.order_id ?? null,
+      computed_total_cents:
+        details?.computed_total_cents === null || details?.computed_total_cents === undefined
+          ? null
+          : toNumber(details.computed_total_cents),
+      client_total_cents:
+        details?.client_total_cents === null || details?.client_total_cents === undefined
+          ? null
+          : toNumber(details.client_total_cents),
+      is_paid: typeof details?.is_paid === "boolean" ? details.is_paid : null,
+    },
+  };
+
+  console.error("[payment] PAYMENT_REQUIRED", payload.error);
+  return json(res, 402, payload);
+};
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
   if (!req.body || typeof req.body !== "object") {
@@ -68,12 +108,19 @@ export default async function handler(req, res) {
 
   const rawSourceId = req.body?.source_id ?? req.body?.sourceId ?? "";
   const sourceId = String(rawSourceId).trim();
+  const clientTotalCents = toNullableNumber(req.body?.total_cents ?? req.body?.totalCents);
 
   if (!isNonEmptyString(orderId)) {
     return fail(res, 400, "VALIDATION_ERROR", "order_id is required.");
   }
   if (!isNonEmptyString(sourceId) || !sourceId.startsWith("clv_")) {
-    return fail(res, 400, "VALIDATION_ERROR", "source_id is invalid.");
+    return paymentRequired(res, {
+      reason: "MISSING_PAYMENT_TOKEN",
+      order_id: orderId || null,
+      computed_total_cents: null,
+      client_total_cents: clientTotalCents,
+      is_paid: null,
+    });
   }
 
   const {
@@ -91,7 +138,13 @@ export default async function handler(req, res) {
     !SUPABASE_URL ||
     !SUPABASE_SERVICE_ROLE_KEY
   ) {
-    return fail(res, 500, "SERVER_CONFIG_ERROR", "Server configuration error.");
+    return paymentRequired(res, {
+      reason: "MISSING_ENV",
+      order_id: orderId || null,
+      computed_total_cents: null,
+      client_total_cents: clientTotalCents,
+      is_paid: null,
+    });
   }
 
   const supabase = supabaseServerClient();
@@ -108,24 +161,49 @@ export default async function handler(req, res) {
     if (orderError) {
       const message = String(orderError.message || "");
       if (orderError.code === "PGRST116" || message.toLowerCase().includes("0 rows")) {
-        return fail(res, 404, "ORDER_NOT_FOUND", "Order not found.");
+        return paymentRequired(res, {
+          reason: "ORDER_NOT_FOUND",
+          order_id: orderId || null,
+          computed_total_cents: null,
+          client_total_cents: clientTotalCents,
+          is_paid: null,
+        });
       }
       throw orderError;
     }
 
     if (!order) {
-      return fail(res, 404, "ORDER_NOT_FOUND", "Order not found.");
+      return paymentRequired(res, {
+        reason: "ORDER_NOT_FOUND",
+        order_id: orderId || null,
+        computed_total_cents: null,
+        client_total_cents: clientTotalCents,
+        is_paid: null,
+      });
+    }
+
+    const computedTotalCents =
+      toNumber(order.subtotal_cents) + toNumber(order.processing_fee_cents) + toNumber(order.delivery_fee_cents);
+    const orderTotalCents = toNumber(order.total_cents);
+    const isPaid = order.payment_status === "paid";
+
+    if (computedTotalCents !== orderTotalCents || (clientTotalCents !== null && clientTotalCents !== orderTotalCents)) {
+      return paymentRequired(res, {
+        reason: "INVALID_TOTAL",
+        order_id: order.id || null,
+        computed_total_cents: computedTotalCents,
+        client_total_cents: clientTotalCents,
+        is_paid: isPaid,
+      });
     }
 
     if (order.payment_status === "paid") {
-      return ok(res, {
-        ok: true,
-        already_paid: true,
-        order_id: order.id,
-        order_code: order.order_code,
-        clover_payment_id: order.clover_payment_id || null,
-        clover_order_id: order.clover_order_id || null,
-        status: "paid",
+      return paymentRequired(res, {
+        reason: "ORDER_ALREADY_PAID",
+        order_id: order.id || null,
+        computed_total_cents: computedTotalCents,
+        client_total_cents: clientTotalCents,
+        is_paid: true,
       });
     }
 
@@ -148,16 +226,18 @@ export default async function handler(req, res) {
     });
 
     if (!chargeResp.ok) {
-      console.error("[payment] Clover charge failed", {
-        status: chargeResp.status,
-        order_id: order.id,
-        order_code: order.order_code,
-        error: chargeData?.error || chargeData?.message || null,
-      });
-      return json(res, 402, {
-        ok: false,
-        code: "PAYMENT_FAILED",
-        error: "Payment was declined. Please try another card.",
+      const chargeReason =
+        chargeData?.error?.code ||
+        chargeData?.error?.type ||
+        chargeData?.code ||
+        `CLOVER_${chargeResp.status}`;
+
+      return paymentRequired(res, {
+        reason: chargeReason,
+        order_id: order.id || null,
+        computed_total_cents: computedTotalCents,
+        client_total_cents: clientTotalCents,
+        is_paid: false,
       });
     }
 
