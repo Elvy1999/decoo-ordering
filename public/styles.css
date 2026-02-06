@@ -923,6 +923,12 @@ p {
   border-radius: 99px;
   background: rgba(214, 165, 0, 0.55);
 }
+.menu-section-title--gold {
+  color: #d6a500;
+}
+.menu-section-title--gold::after {
+  background: rgba(214, 165, 0, 0.55);
+}
 .menu-section-list .price-list {
   margin-top: 8px;
 }

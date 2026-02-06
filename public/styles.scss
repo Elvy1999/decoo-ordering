@@ -761,6 +761,14 @@ a {
   }
 }
 
+.menu-section-title--gold {
+  color: #d6a500;
+
+  &::after {
+    background: rgba(214, 165, 0, 0.55);
+  }
+}
+
 .menu-section-list .price-list {
   margin-top: $space-1;
 }
