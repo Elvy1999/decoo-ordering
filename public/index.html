@@ -300,13 +300,19 @@
         <div class="checkout-step" data-checkout-step="review" hidden>
           <ul class="checkout-summary" data-checkout-summary></ul>
 
-          <div class="field">
-            <span>Promo code</span>
-            <div class="promo-row">
-              <input type="text" data-promo-input autocomplete="off" />
+          <div class="promo">
+            <label class="promo__label" for="promo-code">Promo code</label>
+            <div class="promo__row">
+              <input
+                id="promo-code"
+                type="text"
+                data-promo-input
+                placeholder="Enter code"
+                autocomplete="off"
+              />
               <button type="button" class="btn btn--ghost" data-apply-promo>Apply</button>
             </div>
-            <p class="field__hint" data-promo-msg hidden></p>
+            <div class="promo__msg" data-promo-msg hidden></div>
           </div>
 
           <div class="totals" data-checkout-totals>
@@ -314,7 +320,7 @@
             <div class="totals__row"><span>Processing fee</span><span data-fee>$0.00</span></div>
             <div class="totals__row"><span>Tax</span><span data-tax>$0.00</span></div>
             <div class="totals__row"><span>Delivery fee</span><span data-delivery-fee>$0.00</span></div>
-            <div class="totals__row" hidden><span>Discount</span><span data-discount>-$0.00</span></div>
+            <div class="totals__row" data-discount-row hidden><span>Discount</span><span data-discount></span></div>
             <div class="totals__divider"></div>
             <div class="totals__row totals__row--total"><span>Total</span><span data-total>$0.00</span></div>
           </div>

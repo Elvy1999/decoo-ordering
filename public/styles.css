@@ -580,14 +580,44 @@ p {
   color: rgba(17, 17, 17, 0.7);
 }
 
-.promo-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+.promo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.promo-row .btn {
+.promo__label {
+  font-weight: 600;
+}
+
+.promo__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.promo__row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.promo__row .btn {
+  flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.promo__msg {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(17, 17, 17, 0.7);
+}
+
+.promo__msg--success {
+  color: #22663a;
+}
+
+.promo__msg--error {
+  color: #8e1c1c;
 }
 
 .form-error {
