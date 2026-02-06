@@ -197,7 +197,7 @@ const renderDeliveryMinUI = (cartState) => {
     return;
   }
 
-  const message = `Delivery minimum: ${formatMoney(state.min)} (before fees). Subtotal: ${formatMoney(state.subtotal)} — add ${formatMoney(state.shortfall)} more.`;
+  const message = `Delivery minimum: ${formatMoney(state.min)}. Subtotal: ${formatMoney(state.subtotal)} — add ${formatMoney(state.shortfall)} more.`;
 
   if (box) box.hidden = false;
   if (text) text.textContent = message;
