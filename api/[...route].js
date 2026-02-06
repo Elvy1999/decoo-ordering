@@ -11,6 +11,8 @@ import handleAdminOrder from "./_handlers/admin/order.js";
 import handleAdminOrders from "./_handlers/admin/orders.js";
 import handleAdminReprint from "./_handlers/admin/reprint.js";
 import handleAdminSettings from "./_handlers/admin/settings.js";
+import { handleAdminPromoCodes } from "./_handlers/admin/promoCodes.js";
+import { handleAdminPromoCode } from "./_handlers/admin/promoCode.js";
 import { ok, fail, methodNotAllowed } from "./_handlers/shared.js";
 
 function getPath(req) {
@@ -66,6 +68,10 @@ export default async function handler(req, res) {
         return handleAdminOrder(req, res);
       case "settings":
         return handleAdminSettings(req, res);
+      case "promo-codes":
+        return handleAdminPromoCodes(req, res);
+      case "promo-code":
+        return handleAdminPromoCode(req, res);
       case "reprint":
         return handleAdminReprint(req, res);
       default:
