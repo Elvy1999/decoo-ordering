@@ -452,6 +452,16 @@ a {
   max-width: 360px;
 }
 
+.auto-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auto-link:visited {
+  color: inherit;
+}
+
 .footer {
   text-align: center;
   padding: $space-4 0 0;

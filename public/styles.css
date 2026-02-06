@@ -450,6 +450,16 @@ a {
   font-size: 1.05rem;
 }
 
+.auto-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auto-link:visited {
+  color: inherit;
+}
+
 .footer {
   text-align: center;
   padding: 12px 0 0;
