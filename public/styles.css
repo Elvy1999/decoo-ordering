@@ -924,10 +924,10 @@ p {
   background: rgba(214, 165, 0, 0.55);
 }
 .menu-section-title--gold {
-  color: #d6a500;
+  color: #f5c542;
 }
 .menu-section-title--gold::after {
-  background: rgba(214, 165, 0, 0.55);
+  background: rgba(245, 197, 66, 0.55);
 }
 .menu-section-list .price-list {
   margin-top: 8px;
