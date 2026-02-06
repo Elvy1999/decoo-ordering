@@ -373,10 +373,12 @@ const updateTotalsBlock = (container, totals) => {
   if (!container || !totals) return;
   const subtotalEl = container.querySelector("[data-subtotal]");
   const feeEl = container.querySelector("[data-fee]");
+  const taxEl = container.querySelector("[data-tax]");
   const deliveryEl = container.querySelector("[data-delivery-fee]");
   const totalEl = container.querySelector("[data-total]");
   if (subtotalEl) subtotalEl.textContent = formatMoney(totals.subtotal);
   if (feeEl) feeEl.textContent = formatMoney(totals.processingFee);
+  if (taxEl) taxEl.textContent = formatMoney(totals.tax || 0);
   if (deliveryEl) {
     deliveryEl.textContent = formatMoney(totals.deliveryFee || 0);
     const deliveryRow = deliveryEl.closest(".totals__row");
@@ -1130,7 +1132,12 @@ document.addEventListener("click", async (event) => {
   const backCheckout = event.target.closest("[data-checkout-back]");
   if (backCheckout) {
     setCheckoutStep("details");
+    hydrateCheckoutInputsFromState();
     updateCheckoutUI();
+    if (checkoutError) {
+      checkoutError.textContent = "";
+      checkoutError.hidden = true;
+    }
     return;
   }
 

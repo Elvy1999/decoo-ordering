@@ -251,6 +251,18 @@ a {
   }
 }
 
+.btn--danger {
+  background: $color-red;
+  color: $color-white;
+  box-shadow: $shadow-soft;
+
+  &:hover {
+    background: $color-red-dark;
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+  }
+}
+
 .btn--ghost {
   background: transparent;
   border-color: $color-white;

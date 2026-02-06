@@ -243,6 +243,17 @@ a {
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
 }
 
+.btn--danger {
+  background: #c62828;
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+.btn--danger:hover {
+  background: #8e1c1c;
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+}
+
 .btn--ghost {
   background: transparent;
   border-color: #ffffff;
