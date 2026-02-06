@@ -741,6 +741,17 @@ a {
   border-bottom: 1px dashed rgba(0, 0, 0, 0.2);
 }
 
+.menu-section-title {
+  margin-top: $space-4;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.menu-section-list .price-list {
+  margin-top: $space-1;
+}
+
 .menu-item {
   align-items: center;
   gap: $space-2;

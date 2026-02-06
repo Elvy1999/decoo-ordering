@@ -905,6 +905,15 @@ p {
   padding: 12px 0;
   border-bottom: 1px dashed rgba(0, 0, 0, 0.2);
 }
+.menu-section-title {
+  margin-top: 24px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.menu-section-list .price-list {
+  margin-top: 8px;
+}
 .menu-item {
   align-items: center;
   gap: 12px;

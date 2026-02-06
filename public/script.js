@@ -23,6 +23,10 @@ const MENU_NAME_FILTER = {
   tresLeches: "Tres Leches",
 };
 
+const GOURMET_ORDER = ["Steak & Cheese", "Shrimp", "Crab Meat", "Conch Meat (Lambi)"];
+const REGULAR_ORDER = ["Beef & Cheese", "Chicken & Cheese", "3 Cheese", "Pork & Cheese"];
+
+const normalizeName = (value) => String(value || "").trim().toLowerCase();
 const normalizeCategory = (value) => String(value || "").trim().toLowerCase();
 
 const formatMoney = (amount) => {
@@ -304,26 +308,83 @@ const renderMenuList = (listEl, items, cartState) => {
   listEl.innerHTML = items.map((item) => renderMenuItemMarkup(item, cartState)).join("");
 };
 
+const matchesItem = (item, target) => {
+  const itemName = normalizeName(item?.name);
+  const targetName = normalizeName(target);
+  if (!itemName || !targetName) return false;
+  if (itemName === targetName) return true;
+
+  const isLambiTarget = targetName.includes("conch meat (lambi)");
+  if (!isLambiTarget) return false;
+  return itemName.includes("lambi") || itemName.includes("conch");
+};
+
+const getSortedItemsForMenuKey = (key) => {
+  const category = CATEGORY_MAP[key];
+  if (!category) return [];
+
+  const categoryKey = normalizeCategory(category);
+  let items = menuItems.filter((item) => normalizeCategory(item.category) === categoryKey);
+
+  const requiredName = MENU_NAME_FILTER[key];
+  if (requiredName) {
+    const nameKey = normalizeName(requiredName);
+    items = items.filter((item) => normalizeName(item.name) === nameKey);
+  }
+
+  return items
+    .slice()
+    .sort((a, b) => (Number(a.sortOrder || 0) || 0) - (Number(b.sortOrder || 0) || 0));
+};
+
+const splitEmpanadasItems = (items) => {
+  const assignedIds = new Set();
+
+  const pickOrderedItems = (orderList) =>
+    orderList
+      .map((target) => {
+        const match = items.find((item) => !assignedIds.has(item.id) && matchesItem(item, target));
+        if (!match) return null;
+        assignedIds.add(match.id);
+        return match;
+      })
+      .filter(Boolean);
+
+  const gourmetItems = pickOrderedItems(GOURMET_ORDER);
+  const regularItems = pickOrderedItems(REGULAR_ORDER);
+  const remainingItems = items.filter((item) => !assignedIds.has(item.id));
+
+  return {
+    gourmetItems,
+    regularItems: [...regularItems, ...remainingItems],
+  };
+};
+
+const renderEmpanadasSections = (items, cartState) => {
+  const gourmetListEl =
+    document.querySelector("#empanadas-gourmet .price-list") || document.querySelector("#empanadas-gourmet");
+  const regularListEl =
+    document.querySelector("#empanadas-regular .price-list") || document.querySelector("#empanadas-regular");
+
+  if (!gourmetListEl || !regularListEl) {
+    const fallbackListEl = document.querySelector('[data-menu-list="empanadas"]');
+    if (fallbackListEl) renderMenuList(fallbackListEl, items, cartState);
+    return;
+  }
+
+  const { gourmetItems, regularItems } = splitEmpanadasItems(items);
+  renderMenuList(gourmetListEl, gourmetItems, cartState);
+  renderMenuList(regularListEl, regularItems, cartState);
+};
+
 const renderAllMenus = (cartState) => {
+  renderEmpanadasSections(getSortedItemsForMenuKey("empanadas"), cartState);
+
   document.querySelectorAll("[data-menu-list]").forEach((listEl) => {
     const key = listEl.dataset.menuList;
-    const category = CATEGORY_MAP[key];
-    if (!category) return;
+    if (!key || key === "empanadas") return;
 
-    const categoryKey = normalizeCategory(category);
-
-    let items = menuItems.filter((item) => normalizeCategory(item.category) === categoryKey);
-
-    const requiredName = MENU_NAME_FILTER[key];
-    if (requiredName) {
-      const nameKey = normalizeCategory(requiredName);
-      items = items.filter((item) => normalizeCategory(item.name) === nameKey);
-    }
-
-    const sortedItems = items
-      .slice()
-      .sort((a, b) => (Number(a.sortOrder || 0) || 0) - (Number(b.sortOrder || 0) || 0));
-
+    const sortedItems = getSortedItemsForMenuKey(key);
     renderMenuList(listEl, sortedItems, cartState);
   });
 };
