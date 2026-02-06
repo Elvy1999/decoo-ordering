@@ -9,7 +9,7 @@ import {
 } from "../../_handlers/shared.js";
 
 const CLOVER_ECOMM_BASE = "https://scl.clover.com";
-const CLOVER_POS_BASE = "https://api.clover.com";
+const CLOVER_POS_BASE = String(process.env.CLOVER_REST_BASE_URL || "https://api.clover.com").trim();
 
 const formatCents = (value) => {
   const cents = Number(value || 0);
@@ -23,6 +23,16 @@ const shortError = (err) => {
   if (err.message) return String(err.message).slice(0, 180);
   if (err.error) return String(err.error).slice(0, 180);
   return "Unknown error";
+};
+
+const responseSnippet = (value, max = 300) => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value.slice(0, max);
+  try {
+    return JSON.stringify(value).slice(0, max);
+  } catch {
+    return String(value).slice(0, max);
+  }
 };
 
 const buildOrderNote = (order) => {
@@ -127,16 +137,16 @@ export default async function handler(req, res) {
 
   const {
     CLOVER_ECOMM_PRIVATE_KEY,
-    CLOVER_REST_API_TOKEN,
-    CLOVER_MERCHANT_ID,
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,
   } = process.env;
+  const REST_TOKEN = String(process.env.CLOVER_REST_API_TOKEN || "").trim();
+  const MID = String(process.env.CLOVER_MERCHANT_ID || "").trim();
 
   if (
     !CLOVER_ECOMM_PRIVATE_KEY ||
-    !CLOVER_REST_API_TOKEN ||
-    !CLOVER_MERCHANT_ID ||
+    !REST_TOKEN ||
+    !MID ||
     !SUPABASE_URL ||
     !SUPABASE_SERVICE_ROLE_KEY
   ) {
@@ -284,12 +294,49 @@ export default async function handler(req, res) {
     let noteAttached = true;
 
     try {
+      const { resp: authResp, data: authData } = await fetchJson(`${CLOVER_POS_BASE}/v3/merchants/${MID}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${REST_TOKEN}`,
+          Accept: "application/json",
+        },
+      });
+
+      console.error("[payment] Clover POS auth test", {
+        pos_base: CLOVER_POS_BASE,
+        mid_last4: MID.slice(-4),
+        token_len: REST_TOKEN.length,
+        status: authResp.status,
+        body: responseSnippet(authData, 300),
+      });
+
+      if (authResp.status === 401) {
+        await supabase
+          .from("orders")
+          .update({
+            pos_status: "failed",
+            pos_error: "POS_AUTH_FAILED",
+            clover_order_id: null,
+          })
+          .eq("id", order.id);
+
+        return ok(res, {
+          ok: true,
+          order_id: order.id,
+          order_code: order.order_code,
+          payment_status: "paid",
+          clover_payment_id: chargeId,
+          clover_order_id: null,
+          warnings: ["pos_failed"],
+        });
+      }
+
       const { resp: orderResp, data: orderData } = await fetchJson(
-        `${CLOVER_POS_BASE}/v3/merchants/${CLOVER_MERCHANT_ID}/orders`,
+        `${CLOVER_POS_BASE}/v3/merchants/${MID}/orders`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${CLOVER_REST_API_TOKEN}`,
+            Authorization: `Bearer ${REST_TOKEN}`,
             "Content-Type": "application/json",
             Accept: "application/json",
           },
@@ -305,11 +352,11 @@ export default async function handler(req, res) {
       if (!orderResp.ok) {
         noteAttached = false;
         const { resp: retryResp, data: retryData } = await fetchJson(
-          `${CLOVER_POS_BASE}/v3/merchants/${CLOVER_MERCHANT_ID}/orders`,
+          `${CLOVER_POS_BASE}/v3/merchants/${MID}/orders`,
           {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${CLOVER_REST_API_TOKEN}`,
+              Authorization: `Bearer ${REST_TOKEN}`,
               "Content-Type": "application/json",
               Accept: "application/json",
             },
@@ -321,7 +368,9 @@ export default async function handler(req, res) {
           },
         );
         if (!retryResp.ok) {
-          throw new Error(`Clover order create failed: ${shortError(retryData)}`);
+          throw new Error(
+            `Clover order create failed (status=${retryResp.status}): ${responseSnippet(retryData, 300)}`,
+          );
         }
         cloverOrderId = retryData?.id || retryData?.order?.id || null;
       } else {
@@ -340,11 +389,11 @@ export default async function handler(req, res) {
         };
 
         const { resp: itemResp, data: itemData } = await fetchJson(
-          `${CLOVER_POS_BASE}/v3/merchants/${CLOVER_MERCHANT_ID}/orders/${cloverOrderId}/line_items`,
+          `${CLOVER_POS_BASE}/v3/merchants/${MID}/orders/${cloverOrderId}/line_items`,
           {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${CLOVER_REST_API_TOKEN}`,
+              Authorization: `Bearer ${REST_TOKEN}`,
               "Content-Type": "application/json",
               Accept: "application/json",
             },
@@ -359,11 +408,11 @@ export default async function handler(req, res) {
 
       if (!noteAttached) {
         const { resp: noteResp, data: noteData } = await fetchJson(
-          `${CLOVER_POS_BASE}/v3/merchants/${CLOVER_MERCHANT_ID}/orders/${cloverOrderId}/line_items`,
+          `${CLOVER_POS_BASE}/v3/merchants/${MID}/orders/${cloverOrderId}/line_items`,
           {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${CLOVER_REST_API_TOKEN}`,
+              Authorization: `Bearer ${REST_TOKEN}`,
               "Content-Type": "application/json",
               Accept: "application/json",
             },
@@ -425,11 +474,11 @@ export default async function handler(req, res) {
     const warnings = [];
 
     const { resp: printResp, data: printData } = await fetchJson(
-      `${CLOVER_POS_BASE}/v3/merchants/${CLOVER_MERCHANT_ID}/print_event`,
+      `${CLOVER_POS_BASE}/v3/merchants/${MID}/print_event`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${CLOVER_REST_API_TOKEN}`,
+          Authorization: `Bearer ${REST_TOKEN}`,
           "Content-Type": "application/json",
           Accept: "application/json",
         },

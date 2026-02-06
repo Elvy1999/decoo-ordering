@@ -2,7 +2,7 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Panel de Administracion Decoo</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -27,6 +27,12 @@
 
       * {
         box-sizing: border-box;
+      }
+
+      html,
+      body {
+        max-width: 100%;
+        overflow-x: hidden;
       }
 
       body {
@@ -312,6 +318,13 @@
         border-bottom: 1px solid var(--border);
       }
 
+      .promo-codes-table-wrapper {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
       .form-error,
       .form-success {
         margin-top: 10px;
@@ -381,9 +394,48 @@
           display: none;
         }
       }
+
+      @media (max-width: 768px) {
+        .promo-codes-section,
+        #promo-codes-section,
+        .promo-codes,
+        #promo-codes {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .promo-codes-table,
+        #promo-codes-table,
+        .promo-codes-section table {
+          width: 100%;
+          min-width: 720px;
+          border-collapse: collapse;
+        }
+
+        .promo-codes-form,
+        #promo-codes-form {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        .promo-codes-form > * {
+          flex: 1 1 100%;
+          min-width: 0;
+        }
+
+        body.admin-page input,
+        body.admin-page select,
+        body.admin-page textarea,
+        body.admin-page button {
+          font-size: 16px !important;
+        }
+      }
     </style>
   </head>
-  <body>
+  <body class="admin-page">
     <header class="topbar">
       <div class="container topbar__row">
         <div>
@@ -496,12 +548,12 @@
           </form>
         </section>
 
-        <section id="promo-codes" class="admin-section">
+        <section id="promo-codes" class="admin-section promo-codes-section">
           <h2>Codigos promocionales</h2>
 
           <div class="card">
             <form data-promo-form>
-              <div class="grid grid--three">
+              <div class="grid grid--three promo-codes-form" id="promo-codes-form">
                 <label>
                   Codigo
                   <input type="text" data-promo-code placeholder="WELCOME10" required />
@@ -541,20 +593,22 @@
 
           <div class="card">
             <h3>Codigos existentes</h3>
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Codigo</th>
-                  <th>Tipo</th>
-                  <th>Valor</th>
-                  <th>Minimo</th>
-                  <th>Usados</th>
-                  <th>Activo</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody data-promo-table></tbody>
-            </table>
+            <div class="promo-codes-table-wrapper">
+              <table class="table promo-codes-table" id="promo-codes-table">
+                <thead>
+                  <tr>
+                    <th>Codigo</th>
+                    <th>Tipo</th>
+                    <th>Valor</th>
+                    <th>Minimo</th>
+                    <th>Usados</th>
+                    <th>Activo</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody data-promo-table></tbody>
+              </table>
+            </div>
           </div>
         </section>
       </section>
