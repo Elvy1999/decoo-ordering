@@ -104,6 +104,7 @@ export default async function handler(req, res) {
   }
 
   const { customer_name, customer_phone, fulfillment_type, delivery_address } = req.body;
+  const promo_code = typeof req.body.promo_code === "string" ? req.body.promo_code.trim().toUpperCase() : "";
   const normalizedItems = validation.normalizedItems;
   const itemIds = Array.from(normalizedItems.keys());
 
@@ -195,9 +196,59 @@ export default async function handler(req, res) {
       }
     }
 
+    // ---- Promo code (optional) ----
+    let appliedPromoCode = null;
+    let discountCents = 0;
+
+    if (promo_code) {
+      const { data: promo, error: promoError } = await supabase
+        .from("promo_codes")
+        .select(
+          "code,discount_type,discount_value,min_order_cents,max_discount_cents,active,starts_at,expires_at,usage_limit,used_count",
+        )
+        .eq("code", promo_code)
+        .single();
+
+      if (!promoError && promo && promo.active) {
+        const now = Date.now();
+        const startsOk = !promo.starts_at || Date.parse(promo.starts_at) <= now;
+        const expiresOk = !promo.expires_at || Date.parse(promo.expires_at) > now;
+
+        const minOrder = toCents(promo.min_order_cents);
+        const minOk = subtotalCents >= minOrder;
+
+        let usageOk = true;
+        if (promo.usage_limit !== null && promo.usage_limit !== undefined) {
+          const limit = Math.max(0, Math.floor(Number(promo.usage_limit)));
+          const used = Math.max(0, Math.floor(Number(promo.used_count || 0)));
+          if (used >= limit) usageOk = false;
+        }
+
+        if (startsOk && expiresOk && minOk && usageOk) {
+          if (promo.discount_type === "flat") {
+            discountCents = toCents(promo.discount_value);
+          } else if (promo.discount_type === "percent") {
+            const pct = Math.max(0, Math.min(100, Math.floor(Number(promo.discount_value))));
+            discountCents = Math.floor((subtotalCents * pct) / 100);
+          }
+
+          const cap =
+            promo.max_discount_cents === null || promo.max_discount_cents === undefined
+              ? null
+              : toCents(promo.max_discount_cents);
+
+          if (cap !== null) discountCents = Math.min(discountCents, cap);
+
+          discountCents = Math.max(0, Math.min(discountCents, subtotalCents));
+
+          if (discountCents > 0) appliedPromoCode = promo.code;
+        }
+      }
+    }
+
     const processingFeeCents = subtotalCents > 0 ? toCents(settings.processing_fee_cents) : 0;
     const deliveryFeeCents = fulfillment_type === "delivery" ? toCents(settings.delivery_fee_cents) : 0;
-    const totalCents = subtotalCents + processingFeeCents + deliveryFeeCents;
+    const totalCents = Math.max(0, subtotalCents + processingFeeCents + deliveryFeeCents - discountCents);
 
     const orderCode = `DCO-${Math.floor(10000 + Math.random() * 90000)}`;
 
@@ -211,6 +262,8 @@ export default async function handler(req, res) {
         subtotal_cents: subtotalCents,
         processing_fee_cents: processingFeeCents,
         delivery_fee_cents: deliveryFeeCents,
+        discount_cents: discountCents,
+        promo_code: appliedPromoCode,
         total_cents: totalCents,
         order_code: orderCode,
         payment_status: "unpaid",
@@ -243,6 +296,10 @@ export default async function handler(req, res) {
     };
     if (fulfillment_type === "delivery" && Number.isFinite(deliveryDistanceMiles)) {
       orderLog.distance_miles = Number(deliveryDistanceMiles.toFixed(2));
+    }
+    if (discountCents > 0) {
+      orderLog.promo_code = appliedPromoCode;
+      orderLog.discount_cents = discountCents;
     }
     console.log("[order]", orderLog);
 

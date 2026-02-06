@@ -29,6 +29,7 @@ const buildOrderNote = (order) => {
   const type = String(order.fulfillment_type || "").toUpperCase() || "-";
   return [
     `ONLINE ORDER: ${order.order_code || "-"}`,
+    `Promo: ${order.promo_code || "-"}`,
     `Type: ${type}`,
     `Name: ${order.customer_name || "-"}`,
     `Phone: ${order.customer_phone || "-"}`,
@@ -37,6 +38,7 @@ const buildOrderNote = (order) => {
     `Subtotal: ${formatCents(order.subtotal_cents)}`,
     `Processing fee: ${formatCents(order.processing_fee_cents)}`,
     `Delivery fee: ${formatCents(order.delivery_fee_cents)}`,
+    `Discount: -${formatCents(order.discount_cents)}`,
     `Total: ${formatCents(order.total_cents)}`,
   ].join("\n");
 };
@@ -153,7 +155,7 @@ export default async function handler(req, res) {
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .select(
-        "id,payment_status,total_cents,subtotal_cents,processing_fee_cents,delivery_fee_cents,order_code,customer_name,customer_phone,fulfillment_type,delivery_address,clover_payment_id,clover_order_id",
+        "id,payment_status,total_cents,subtotal_cents,processing_fee_cents,delivery_fee_cents,discount_cents,promo_code,order_code,customer_name,customer_phone,fulfillment_type,delivery_address,clover_payment_id,clover_order_id",
       )
       .eq("id", orderId)
       .single();
@@ -183,7 +185,10 @@ export default async function handler(req, res) {
     }
 
     const computedTotalCents =
-      toNumber(order.subtotal_cents) + toNumber(order.processing_fee_cents) + toNumber(order.delivery_fee_cents);
+      toNumber(order.subtotal_cents) +
+      toNumber(order.processing_fee_cents) +
+      toNumber(order.delivery_fee_cents) -
+      toNumber(order.discount_cents);
     const orderTotalCents = toNumber(order.total_cents);
     const isPaid = order.payment_status === "paid";
 
@@ -258,6 +263,12 @@ export default async function handler(req, res) {
         order_id: order.id,
         error: paidError,
       });
+    }
+
+    // Increment promo usage only after successful payment status update.
+    if (!paidError && order.promo_code && toNumber(order.discount_cents) > 0) {
+      const code = String(order.promo_code).trim().toUpperCase();
+      await supabase.rpc("promo_codes_increment_used_count", { p_code: code }).catch(() => null);
     }
 
     const { data: items, error: itemsError } = await supabase

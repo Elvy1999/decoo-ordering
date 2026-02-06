@@ -3,6 +3,7 @@ import handleOrders from "./_handlers/orders.js";
 import handleSettings from "./_handlers/settings.js";
 import handleHealth from "./_handlers/health.js";
 import handleValidateDelivery from "./_handlers/validateDelivery.js";
+import handleValidatePromo from "./_handlers/validatePromo.js";
 import handleDiag from "./_handlers/diag.js";
 import handleAdminMenu from "./_handlers/admin/menu.js";
 import handleAdminMenuItem from "./_handlers/admin/menuItem.js";
@@ -39,6 +40,7 @@ export default async function handler(req, res) {
   if (path === "/settings") return handleSettings(req, res);
   if (path === "/health") return handleHealth(req, res);
   if (path === "/validate-delivery") return handleValidateDelivery(req, res);
+  if (path === "/validate-promo") return handleValidatePromo(req, res);
   if (path === "/diag") return handleDiag(req, res);
   if (path === "/reprint") return handleAdminReprint(req, res);
 
