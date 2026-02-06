@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Decoo Admin</title>
+    <title>Panel de Administracion Decoo</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -387,62 +387,62 @@
     <header class="topbar">
       <div class="container topbar__row">
         <div>
-          <div class="brand">Decoo Admin</div>
-          <div class="helper">Manage settings, menu items, and recent orders.</div>
+          <div class="brand">Panel Decoo</div>
+          <div class="helper">Administra configuracion, menu y pedidos recientes.</div>
         </div>
         <div style="display: flex; align-items: center; gap: 10px;">
-          <a class="btn btn--ghost btn--small" href="#promo-codes">Promo Codes</a>
-          <button class="btn btn--ghost" id="logout-btn" type="button">Log out</button>
+          <a class="btn btn--ghost btn--small" href="#promo-codes">Codigos promocionales</a>
+          <button class="btn btn--ghost" id="logout-btn" type="button">Cerrar sesion</button>
         </div>
       </div>
     </header>
 
     <main class="container">
       <section class="panel" id="login-panel">
-        <h2>Admin Login</h2>
-        <p class="helper">Enter your admin token to access management tools.</p>
+        <h2>Inicio de sesion de administrador</h2>
+        <p class="helper">Ingresa tu token de administrador para acceder a las herramientas.</p>
         <div class="field">
-          <label for="admin-token">Admin Token</label>
+          <label for="admin-token">Token de administrador</label>
           <input id="admin-token" type="password" placeholder="••••••••" />
         </div>
-        <button class="btn" id="login-btn" type="button">Unlock Admin</button>
+        <button class="btn" id="login-btn" type="button">Entrar al panel</button>
       </section>
 
       <section id="admin-panels" hidden>
         <section class="panel" id="orders-panel">
           <div class="panel__header">
-            <h2>Recent Orders</h2>
-            <button class="btn btn--ghost btn--small" id="orders-refresh" type="button">Refresh</button>
+            <h2>Pedidos recientes</h2>
+            <button class="btn btn--ghost btn--small" id="orders-refresh" type="button">Actualizar</button>
           </div>
-          <div class="helper">Click an order to view details.</div>
+          <div class="helper">Haz clic en un pedido para ver los detalles.</div>
           <div class="orders-table-wrapper" id="orders-table-wrapper">
             <table class="orders-table">
               <thead>
                 <tr>
-                  <th>Order Code</th>
-                  <th>Customer</th>
-                  <th>Phone</th>
-                  <th>Type</th>
+                  <th>Codigo</th>
+                  <th>Cliente</th>
+                  <th>Telefono</th>
+                  <th>Tipo</th>
                   <th>Total</th>
-                  <th>Date</th>
-                  <th id="orders-status-header" hidden>Status</th>
+                  <th>Fecha</th>
+                  <th id="orders-status-header" hidden>Estado</th>
                 </tr>
               </thead>
               <tbody id="orders-body"></tbody>
             </table>
           </div>
           <div class="order-detail" id="order-detail">
-            <h3>Order Detail</h3>
-            <p class="helper">Select an order to see its items and customer info.</p>
+            <h3>Detalle del pedido</h3>
+            <p class="helper">Selecciona un pedido para ver sus articulos y datos del cliente.</p>
           </div>
         </section>
 
         <section class="panel" id="menu-panel">
           <div class="panel__header">
-            <h2>Menu Management</h2>
+            <h2>Gestion del menu</h2>
             <div class="field">
-              <label for="menu-search">Search</label>
-              <input id="menu-search" type="search" placeholder="Search by name or category" />
+              <label for="menu-search">Buscar</label>
+              <input id="menu-search" type="search" placeholder="Buscar por nombre o categoria" />
             </div>
           </div>
           <div id="menu-groups"></div>
@@ -450,21 +450,21 @@
 
         <section class="panel" id="settings-panel">
           <div class="panel__header">
-            <h2>Settings</h2>
-            <span class="badge" id="settings-status">Idle</span>
+            <h2>Configuracion</h2>
+            <span class="badge" id="settings-status">En espera</span>
           </div>
           <form id="settings-form">
             <div class="grid grid--two">
               <div class="field field--inline">
-                <label for="ordering_enabled">Ordering Enabled</label>
+                <label for="ordering_enabled">Pedidos habilitados</label>
                 <input id="ordering_enabled" name="ordering_enabled" type="checkbox" />
               </div>
               <div class="field field--inline">
-                <label for="delivery_enabled">Delivery Enabled</label>
+                <label for="delivery_enabled">Entrega habilitada</label>
                 <input id="delivery_enabled" name="delivery_enabled" type="checkbox" />
               </div>
               <div class="field">
-                <label for="delivery_radius_miles">Delivery Radius (miles)</label>
+                <label for="delivery_radius_miles">Radio de entrega (millas)</label>
                 <input
                   id="delivery_radius_miles"
                   name="delivery_radius_miles"
@@ -474,15 +474,15 @@
                 />
               </div>
               <div class="field">
-                <label for="processing_fee_cents">Processing Fee (cents)</label>
+                <label for="processing_fee_cents">Cargo de procesamiento (centavos)</label>
                 <input id="processing_fee_cents" name="processing_fee_cents" type="number" min="0" step="1" />
               </div>
               <div class="field">
-                <label for="delivery_fee_cents">Delivery Fee (cents)</label>
+                <label for="delivery_fee_cents">Cargo de entrega (centavos)</label>
                 <input id="delivery_fee_cents" name="delivery_fee_cents" type="number" min="0" step="1" />
               </div>
               <div class="field">
-                <label for="delivery_min_total_cents">Delivery Min Total (cents)</label>
+                <label for="delivery_min_total_cents">Total minimo para entrega (centavos)</label>
                 <input
                   id="delivery_min_total_cents"
                   name="delivery_min_total_cents"
@@ -492,57 +492,47 @@
                 />
               </div>
             </div>
-            <button class="btn" type="submit" id="settings-save">Save Settings</button>
+            <button class="btn" type="submit" id="settings-save">Guardar configuracion</button>
           </form>
         </section>
 
         <section id="promo-codes" class="admin-section">
-          <h2>Promo Codes</h2>
+          <h2>Codigos promocionales</h2>
 
           <div class="card">
             <form data-promo-form>
               <div class="grid grid--three">
                 <label>
-                  Code
+                  Codigo
                   <input type="text" data-promo-code placeholder="WELCOME10" required />
                 </label>
 
                 <label>
-                  Type
+                  Tipo
                   <select data-promo-type>
-                    <option value="flat">Flat ($ off)</option>
-                    <option value="percent">Percent (% off)</option>
+                    <option value="flat">Fijo (descuento $)</option>
+                    <option value="percent">Porcentaje (% de descuento)</option>
                   </select>
                 </label>
 
                 <label>
-                  Value
+                  Valor
                   <input type="number" data-promo-value min="1" required />
                   <small data-promo-value-hint></small>
                 </label>
 
                 <label>
-                  Min Order ($)
+                  Pedido minimo ($)
                   <input type="number" data-promo-min min="0" step="0.01" value="0" />
-                </label>
-
-                <label>
-                  Usage Limit (optional)
-                  <input type="number" data-promo-limit min="0" />
-                </label>
-
-                <label>
-                  Expires At (optional)
-                  <input type="datetime-local" data-promo-expires />
                 </label>
 
                 <label class="inline">
                   <input type="checkbox" data-promo-active checked />
-                  Active
+                  Activo
                 </label>
               </div>
 
-              <button class="btn" type="submit">Save Promo Code</button>
+              <button class="btn" type="submit">Guardar codigo promocional</button>
 
               <div class="form-error" data-promo-error hidden></div>
               <div class="form-success" data-promo-success hidden></div>
@@ -550,18 +540,16 @@
           </div>
 
           <div class="card">
-            <h3>Existing Codes</h3>
+            <h3>Codigos existentes</h3>
             <table class="table">
               <thead>
                 <tr>
-                  <th>Code</th>
-                  <th>Type</th>
-                  <th>Value</th>
-                  <th>Min</th>
-                  <th>Used</th>
-                  <th>Limit</th>
-                  <th>Active</th>
-                  <th>Expires</th>
+                  <th>Codigo</th>
+                  <th>Tipo</th>
+                  <th>Valor</th>
+                  <th>Minimo</th>
+                  <th>Usados</th>
+                  <th>Activo</th>
                   <th></th>
                 </tr>
               </thead>

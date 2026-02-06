@@ -221,28 +221,18 @@ export default async function handler(req, res) {
     if (promo_code) {
       const { data: promo, error: promoError } = await supabase
         .from("promo_codes")
-        .select(
-          "code,discount_type,discount_value,min_order_cents,max_discount_cents,active,starts_at,expires_at,usage_limit,used_count",
-        )
+        .select("code,discount_type,discount_value,min_order_cents,max_discount_cents,active,starts_at")
         .eq("code", promo_code)
         .single();
 
       if (!promoError && promo && promo.active) {
         const now = Date.now();
         const startsOk = !promo.starts_at || Date.parse(promo.starts_at) <= now;
-        const expiresOk = !promo.expires_at || Date.parse(promo.expires_at) > now;
 
         const minOrder = toCents(promo.min_order_cents);
         const minOk = subtotalCents >= minOrder;
 
-        let usageOk = true;
-        if (promo.usage_limit !== null && promo.usage_limit !== undefined) {
-          const limit = Math.max(0, Math.floor(Number(promo.usage_limit)));
-          const used = Math.max(0, Math.floor(Number(promo.used_count || 0)));
-          if (used >= limit) usageOk = false;
-        }
-
-        if (startsOk && expiresOk && minOk && usageOk) {
+        if (startsOk && minOk) {
           if (promo.discount_type === "flat") {
             discountCents = toCents(promo.discount_value);
           } else if (promo.discount_type === "percent") {

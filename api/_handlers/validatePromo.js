@@ -44,9 +44,7 @@ export default async function handler(req, res) {
   try {
     const { data: promo, error } = await supabase
       .from("promo_codes")
-      .select(
-        "code,discount_type,discount_value,min_order_cents,max_discount_cents,active,starts_at,expires_at,usage_limit,used_count",
-      )
+      .select("code,discount_type,discount_value,min_order_cents,max_discount_cents,active,starts_at")
       .eq("code", code)
       .single();
 
@@ -62,9 +60,6 @@ export default async function handler(req, res) {
     if (promo.starts_at && Date.parse(promo.starts_at) > now) {
       return ok(res, { ok: true, valid: false, code, discount_cents: 0, message: "Code not active yet." });
     }
-    if (promo.expires_at && Date.parse(promo.expires_at) <= now) {
-      return ok(res, { ok: true, valid: false, code, discount_cents: 0, message: "Code has expired." });
-    }
 
     const minOrder = toCents(promo.min_order_cents);
     if (subtotalCents < minOrder) {
@@ -75,14 +70,6 @@ export default async function handler(req, res) {
         discount_cents: 0,
         message: `Minimum order is $${(minOrder / 100).toFixed(2)}.`,
       });
-    }
-
-    if (promo.usage_limit !== null && promo.usage_limit !== undefined) {
-      const limit = Math.max(0, Math.floor(Number(promo.usage_limit)));
-      const used = Math.max(0, Math.floor(Number(promo.used_count || 0)));
-      if (used >= limit) {
-        return ok(res, { ok: true, valid: false, code, discount_cents: 0, message: "Code usage limit reached." });
-      }
     }
 
     const discountCents = computeDiscountCents({

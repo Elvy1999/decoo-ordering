@@ -2,24 +2,12 @@ import { ok, fail, methodNotAllowed, supabaseServerClient } from "../shared.js";
 import { requireAdmin } from "./auth.js";
 
 const PROMO_SELECT =
-  "id,code,discount_type,discount_value,min_order_cents,max_discount_cents,usage_limit,used_count,active,starts_at,expires_at,first_order_only,note,created_at,updated_at";
+  "id,code,discount_type,discount_value,min_order_cents,max_discount_cents,used_count,active,starts_at,first_order_only,note,created_at,updated_at";
 
 const normalizeCode = (value) => String(value || "").trim().toUpperCase();
 const asInteger = (value) => {
   const num = Number(value);
   return Number.isInteger(num) ? num : null;
-};
-
-const parseIsoTimestampOrNull = (value, fieldName) => {
-  if (value === null || value === undefined) return { value: null };
-  if (typeof value !== "string" || value.trim().length === 0) {
-    return { error: `${fieldName} must be null or an ISO timestamp.` };
-  }
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    return { error: `${fieldName} must be null or an ISO timestamp.` };
-  }
-  return { value: new Date(parsed).toISOString() };
 };
 
 export async function handleAdminPromoCode(req, res) {
@@ -56,24 +44,6 @@ export async function handleAdminPromoCode(req, res) {
     return fail(res, 400, "VALIDATION_ERROR", "min_order_cents must be an integer >= 0.");
   }
 
-  let usageLimit = null;
-  if (Object.prototype.hasOwnProperty.call(body, "usage_limit")) {
-    if (body.usage_limit === null || body.usage_limit === "") {
-      usageLimit = null;
-    } else {
-      const parsedLimit = asInteger(body.usage_limit);
-      if (parsedLimit === null || parsedLimit < 0) {
-        return fail(res, 400, "VALIDATION_ERROR", "usage_limit must be null or an integer >= 0.");
-      }
-      usageLimit = parsedLimit;
-    }
-  }
-
-  const expiresParsed = parseIsoTimestampOrNull(body.expires_at, "expires_at");
-  if (expiresParsed.error) {
-    return fail(res, 400, "VALIDATION_ERROR", expiresParsed.error);
-  }
-
   if (typeof body.active !== "boolean") {
     return fail(res, 400, "VALIDATION_ERROR", "active must be a boolean.");
   }
@@ -83,8 +53,8 @@ export async function handleAdminPromoCode(req, res) {
     discount_type: discountType,
     discount_value: discountValue,
     min_order_cents: minOrderCents,
-    usage_limit: usageLimit,
-    expires_at: expiresParsed.value,
+    usage_limit: null,
+    expires_at: null,
     active: body.active,
   };
 

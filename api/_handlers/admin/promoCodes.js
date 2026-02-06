@@ -2,7 +2,7 @@ import { ok, fail, methodNotAllowed, supabaseServerClient } from "../shared.js";
 import { requireAdmin } from "./auth.js";
 
 const PROMO_SELECT =
-  "id,code,discount_type,discount_value,min_order_cents,max_discount_cents,usage_limit,used_count,active,starts_at,expires_at,first_order_only,note,created_at,updated_at";
+  "id,code,discount_type,discount_value,min_order_cents,max_discount_cents,used_count,active,starts_at,first_order_only,note,created_at,updated_at";
 
 export async function handleAdminPromoCodes(req, res) {
   if (!requireAdmin(req, res)) return;
