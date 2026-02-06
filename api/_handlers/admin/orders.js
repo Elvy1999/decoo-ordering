@@ -15,6 +15,7 @@ export default async function handler(req, res) {
     let { data, error } = await supabase
       .from("orders")
       .select(withStatus)
+      .eq("payment_status", "paid")
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -22,6 +23,7 @@ export default async function handler(req, res) {
       const fallback = await supabase
         .from("orders")
         .select(BASE_FIELDS)
+        .eq("payment_status", "paid")
         .order("created_at", { ascending: false })
         .limit(50);
       if (fallback.error) throw fallback.error;
