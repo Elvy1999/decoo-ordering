@@ -8,11 +8,27 @@ import {
   haversineMiles,
 } from "./shared.js";
 
+function normalizeDeliveryAddress(raw) {
+  const input = String(raw || "").trim();
+  if (!input) return "";
+
+  const hasPhiladelphia = /\bphiladelphia\b/i.test(input);
+  const hasState =
+    /\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/i.test(
+      input,
+    );
+
+  if (!hasPhiladelphia && !hasState) return `${input}, Philadelphia, PA`;
+  if (hasPhiladelphia && !hasState) return `${input}, PA`;
+  return input;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
 
   try {
-    const address = (req.body?.address || "").trim();
+    const rawAddress = (req.body?.address || "").trim();
+    const address = normalizeDeliveryAddress(rawAddress);
     if (!address) {
       return fail(res, 400, "ADDRESS_REQUIRED", "Address is required.");
     }
@@ -54,6 +70,7 @@ export default async function handler(req, res) {
       radiusMiles,
       distanceMiles: Number(distanceMiles.toFixed(2)),
       normalizedAddress: geo.place_name || "",
+      inputAddress: address,
     });
   } catch (err) {
     console.error("validate-delivery failed:", err);

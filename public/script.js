@@ -39,6 +39,21 @@ const getErrorMessage = (data, fallback) => {
   return fallback;
 };
 
+const normalizeDeliveryAddress = (raw) => {
+  const input = String(raw || "").trim();
+  if (!input) return "";
+
+  const hasPhiladelphia = /\bphiladelphia\b/i.test(input);
+  const hasState =
+    /\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/i.test(
+      input,
+    );
+
+  if (!hasPhiladelphia && !hasState) return `${input}, Philadelphia, PA`;
+  if (hasPhiladelphia && !hasState) return `${input}, PA`;
+  return input;
+};
+
 const normalizeSettings = (settings) => ({
   pickupEnabled: true,
   orderingEnabled: Boolean(settings?.ordering_enabled),
@@ -1401,10 +1416,14 @@ document.addEventListener("click", async (event) => {
     }
     if (checkoutState.orderType === "delivery") {
       try {
+        const normalizedAddress = normalizeDeliveryAddress(checkoutState.address);
+        checkoutState.address = normalizedAddress;
+        if (checkoutFieldAddress) checkoutFieldAddress.value = normalizedAddress;
+
         const resp = await fetch("/api/validate-delivery", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ address: checkoutState.address }),
+          body: JSON.stringify({ address: normalizedAddress }),
         });
 
         const data = await resp.json().catch(() => null);
@@ -1573,11 +1592,17 @@ document.addEventListener("click", async (event) => {
 
     const cartSnapshot = { ...cart };
     const totals = calculateReviewTotals(cartSnapshot);
+    const normalizedDeliveryAddress =
+      checkoutState.orderType === "delivery" ? normalizeDeliveryAddress(checkoutState.address) : null;
+    if (checkoutState.orderType === "delivery") {
+      checkoutState.address = normalizedDeliveryAddress;
+      if (checkoutFieldAddress) checkoutFieldAddress.value = normalizedDeliveryAddress;
+    }
     const payload = {
       customer_name: checkoutState.name,
       customer_phone: checkoutState.phone,
       fulfillment_type: checkoutState.orderType,
-      delivery_address: checkoutState.orderType === "delivery" ? checkoutState.address : null,
+      delivery_address: normalizedDeliveryAddress,
       promo_code: checkoutState.promoCode || "",
       items: Object.entries(cartSnapshot).map(([id, qty]) => ({ id: Number(id), qty })),
     };

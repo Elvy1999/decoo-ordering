@@ -17,6 +17,21 @@ import {
   MAX_UNIQUE_ITEMS,
 } from "./shared.js";
 
+function normalizeDeliveryAddress(raw) {
+  const input = String(raw || "").trim();
+  if (!input) return "";
+
+  const hasPhiladelphia = /\bphiladelphia\b/i.test(input);
+  const hasState =
+    /\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/i.test(
+      input,
+    );
+
+  if (!hasPhiladelphia && !hasState) return `${input}, Philadelphia, PA`;
+  if (hasPhiladelphia && !hasState) return `${input}, PA`;
+  return input;
+}
+
 function validateOrderPayload(payload) {
   if (!payload || typeof payload !== "object") {
     return { error: "Invalid order payload." };
@@ -42,14 +57,16 @@ function validateOrderPayload(payload) {
     return { error: "Order type must be pickup or delivery." };
   }
 
+  let normalizedDeliveryAddress = null;
   if (payload.fulfillment_type === "delivery") {
-    const address = typeof payload.delivery_address === "string" ? payload.delivery_address.trim() : "";
+    const address = normalizeDeliveryAddress(payload.delivery_address);
     if (!address) return { error: "Delivery address is required for delivery orders." };
     if (address.length < ADDRESS_MIN_LEN || address.length > ADDRESS_MAX_LEN) {
       return {
         error: `Delivery address must be between ${ADDRESS_MIN_LEN} and ${ADDRESS_MAX_LEN} characters.`,
       };
     }
+    normalizedDeliveryAddress = address;
   }
 
   if (!Array.isArray(payload.items) || payload.items.length === 0) return { error: "Cart is empty." };
@@ -88,7 +105,7 @@ function validateOrderPayload(payload) {
     }
   }
 
-  return { error: "", normalizedItems };
+  return { error: "", normalizedItems, normalizedDeliveryAddress };
 }
 
 export default async function handler(req, res) {
@@ -103,7 +120,8 @@ export default async function handler(req, res) {
     return fail(res, 500, "SERVER_CONFIG_ERROR", "Server configuration error.");
   }
 
-  const { customer_name, customer_phone, fulfillment_type, delivery_address } = req.body;
+  const { customer_name, customer_phone, fulfillment_type } = req.body;
+  const normalizedDeliveryAddress = validation.normalizedDeliveryAddress;
   const promo_code = typeof req.body.promo_code === "string" ? req.body.promo_code.trim().toUpperCase() : "";
   const normalizedItems = validation.normalizedItems;
   const itemIds = Array.from(normalizedItems.keys());
@@ -178,7 +196,7 @@ export default async function handler(req, res) {
         return fail(res, 500, "RESTAURANT_LOCATION_MISSING", "Restaurant location is not configured.");
       }
 
-      const geo = await geocodeAddressMapbox(delivery_address);
+      const geo = await geocodeAddressMapbox(normalizedDeliveryAddress);
       if (!geo) {
         return fail(
           res,
@@ -258,7 +276,7 @@ export default async function handler(req, res) {
         customer_name,
         customer_phone,
         fulfillment_type,
-        delivery_address: fulfillment_type === "delivery" ? delivery_address : null,
+        delivery_address: normalizedDeliveryAddress,
         subtotal_cents: subtotalCents,
         processing_fee_cents: processingFeeCents,
         delivery_fee_cents: deliveryFeeCents,
