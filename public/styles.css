@@ -580,6 +580,16 @@ p {
   color: rgba(17, 17, 17, 0.7);
 }
 
+.promo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.promo-row .btn {
+  white-space: nowrap;
+}
+
 .form-error {
   margin: 0;
   padding: 10px 12px;

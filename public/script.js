@@ -136,13 +136,20 @@ const getCartSubtotal = (cartState) =>
     return sum + item.price * qty;
   }, 0);
 
-const calculateTotals = (cartState, orderType = "pickup", includeDeliveryFee = false, includeFees = false) => {
+const calculateTotals = (
+  cartState,
+  orderType = "pickup",
+  includeDeliveryFee = false,
+  includeFees = false,
+  discount = 0,
+) => {
   const subtotal = getCartSubtotal(cartState);
+  const normalizedDiscount = Math.min(Math.max(0, Number(discount) || 0), subtotal);
   const processingFee = includeFees && subtotal > 0 ? appSettings?.processingFee || 0 : 0;
   const deliveryFee = orderType === "delivery" && includeDeliveryFee ? appSettings?.deliveryFee || 0 : 0;
   const tax = includeFees ? 0 : 0;
-  const total = subtotal + processingFee + deliveryFee + tax;
-  return { subtotal, processingFee, deliveryFee, tax, total };
+  const total = Math.max(0, subtotal + processingFee + deliveryFee + tax - normalizedDiscount);
+  return { subtotal, processingFee, deliveryFee, tax, discount: normalizedDiscount, total };
 };
 
 const getDeliveryMinState = (cartState) => {
@@ -374,11 +381,18 @@ const updateTotalsBlock = (container, totals) => {
   const subtotalEl = container.querySelector("[data-subtotal]");
   const feeEl = container.querySelector("[data-fee]");
   const taxEl = container.querySelector("[data-tax]");
+  const discountEl = container.querySelector("[data-discount]");
   const deliveryEl = container.querySelector("[data-delivery-fee]");
   const totalEl = container.querySelector("[data-total]");
   if (subtotalEl) subtotalEl.textContent = formatMoney(totals.subtotal);
   if (feeEl) feeEl.textContent = formatMoney(totals.processingFee);
   if (taxEl) taxEl.textContent = formatMoney(totals.tax || 0);
+  if (discountEl) {
+    const discount = Math.max(0, Number(totals.discount) || 0);
+    discountEl.textContent = `-${formatMoney(discount)}`;
+    const discountRow = discountEl.closest(".totals__row");
+    if (discountRow) discountRow.hidden = !(discount > 0);
+  }
   if (deliveryEl) {
     deliveryEl.textContent = formatMoney(totals.deliveryFee || 0);
     const deliveryRow = deliveryEl.closest(".totals__row");
@@ -467,7 +481,14 @@ const syncUIAfterCartChange = (cartState, changedId) => {
   renderDeliveryMinUI(cartState);
 
   if (isCheckoutOpen() && isReviewStepActive()) {
-    updateTotalsBlock(checkoutTotals, calculateTotals(cartState, checkoutState.orderType, true, true));
+    updateTotalsBlock(
+      checkoutTotals,
+      calculateTotals(cartState, checkoutState.orderType, true, true, checkoutState.discount),
+    );
+  }
+
+  if (cartChanged && checkoutState.promoCode) {
+    applyPromo({ code: checkoutState.promoCode, silent: true });
   }
 
   if (pendingOrder && cartChanged) {
@@ -505,6 +526,9 @@ const deliveryDisabledMsg = document.querySelector("[data-delivery-disabled-msg]
 const checkoutFieldName = document.querySelector('[data-field="name"]');
 const checkoutFieldPhone = document.querySelector('[data-field="phone"]');
 const checkoutFieldAddress = document.querySelector('[data-field="address"]');
+const promoInput = document.querySelector("[data-promo-input]");
+const applyPromoButton = document.querySelector("[data-apply-promo]");
+const promoMessage = document.querySelector("[data-promo-msg]");
 const checkoutSummary = document.querySelector("[data-checkout-summary]");
 const checkoutTotals = document.querySelector("[data-checkout-totals]");
 const checkoutActions = document.querySelector("[data-checkout-actions]");
@@ -525,9 +549,13 @@ let checkoutState = {
   phone: "",
   orderType: "pickup",
   address: "",
+  promoCode: "",
+  discount: 0,
+  promoMessage: "",
 };
 
 let pendingOrder = null;
+let promoValidationRequestId = 0;
 let cloverConfig = null;
 let cloverInstance = null;
 let cloverElements = null;
@@ -612,6 +640,125 @@ function resetPendingPaymentUI(message) {
   }
 }
 
+const refreshReviewTotals = (cartState = cart) => {
+  if (!isCheckoutOpen() || !isReviewStepActive()) return;
+  updateTotalsBlock(checkoutTotals, calculateTotals(cartState, checkoutState.orderType, true, true, checkoutState.discount));
+};
+
+const syncPromoUI = () => {
+  if (promoInput) promoInput.value = checkoutState.promoCode || "";
+  if (!promoMessage) return;
+  promoMessage.textContent = checkoutState.promoMessage || "";
+  promoMessage.hidden = !checkoutState.promoMessage;
+};
+
+const applyPromo = async ({ code = "", silent = false } = {}) => {
+  const requestId = ++promoValidationRequestId;
+  const fromInput = code || promoInput?.value || checkoutState.promoCode || "";
+  const normalizedCode = String(fromInput).trim().toUpperCase();
+  const prevPromoCode = checkoutState.promoCode;
+  const prevDiscount = Number(checkoutState.discount) || 0;
+
+  if (applyPromoButton) {
+    applyPromoButton.disabled = true;
+    applyPromoButton.setAttribute("aria-busy", "true");
+  }
+
+  if (!normalizedCode) {
+    checkoutState.promoCode = "";
+    checkoutState.discount = 0;
+    checkoutState.promoMessage = silent ? "" : "Enter a promo code to apply.";
+    syncPromoUI();
+    refreshReviewTotals();
+    const promoChanged = prevPromoCode !== checkoutState.promoCode || Math.abs(prevDiscount - checkoutState.discount) > 0.00001;
+    if (pendingOrder && promoChanged) {
+      resetPendingPaymentUI("Promo code changed. Please place the order again to continue to payment.");
+    }
+    if (applyPromoButton && requestId === promoValidationRequestId) {
+      applyPromoButton.disabled = false;
+      applyPromoButton.removeAttribute("aria-busy");
+    }
+    return { ok: true, valid: false };
+  }
+
+  const subtotalCents = Math.round(getCartSubtotal(cart) * 100);
+  if (subtotalCents <= 0) {
+    checkoutState.promoCode = "";
+    checkoutState.discount = 0;
+    checkoutState.promoMessage = "Add items before applying a promo code.";
+    syncPromoUI();
+    refreshReviewTotals();
+    if (applyPromoButton && requestId === promoValidationRequestId) {
+      applyPromoButton.disabled = false;
+      applyPromoButton.removeAttribute("aria-busy");
+    }
+    return { ok: true, valid: false };
+  }
+
+  try {
+    const response = await fetch("/api/validate-promo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: normalizedCode,
+        subtotal_cents: subtotalCents,
+      }),
+    });
+    const data = await response.json().catch(() => null);
+    if (requestId !== promoValidationRequestId) return { ok: false, stale: true };
+
+    if (!response.ok || !data || !data.ok) {
+      const message = getErrorMessage(data, "Could not validate promo code.");
+      checkoutState.promoCode = "";
+      checkoutState.discount = 0;
+      checkoutState.promoMessage = message;
+      syncPromoUI();
+      refreshReviewTotals();
+      const promoChanged =
+        prevPromoCode !== checkoutState.promoCode || Math.abs(prevDiscount - checkoutState.discount) > 0.00001;
+      if (pendingOrder && promoChanged) {
+        resetPendingPaymentUI("Promo code changed. Please place the order again to continue to payment.");
+      }
+      return { ok: false, valid: false };
+    }
+
+    if (data.valid) {
+      checkoutState.promoCode = String(data.code || normalizedCode).trim().toUpperCase();
+      checkoutState.discount = Math.max(0, Number(data.discount_cents) || 0) / 100;
+      checkoutState.promoMessage = data.message || "Promo applied.";
+    } else {
+      checkoutState.promoCode = "";
+      checkoutState.discount = 0;
+      checkoutState.promoMessage = data.message || "Promo code is invalid.";
+    }
+
+    syncPromoUI();
+    refreshReviewTotals();
+    const promoChanged = prevPromoCode !== checkoutState.promoCode || Math.abs(prevDiscount - checkoutState.discount) > 0.00001;
+    if (pendingOrder && promoChanged) {
+      resetPendingPaymentUI("Promo code changed. Please place the order again to continue to payment.");
+    }
+    return { ok: true, valid: Boolean(data.valid) };
+  } catch (error) {
+    if (requestId !== promoValidationRequestId) return { ok: false, stale: true };
+    checkoutState.promoCode = "";
+    checkoutState.discount = 0;
+    checkoutState.promoMessage = silent ? "" : "Could not validate promo code. Please try again.";
+    syncPromoUI();
+    refreshReviewTotals();
+    const promoChanged = prevPromoCode !== checkoutState.promoCode || Math.abs(prevDiscount - checkoutState.discount) > 0.00001;
+    if (pendingOrder && promoChanged) {
+      resetPendingPaymentUI("Promo code changed. Please place the order again to continue to payment.");
+    }
+    return { ok: false, valid: false };
+  } finally {
+    if (applyPromoButton && requestId === promoValidationRequestId) {
+      applyPromoButton.disabled = false;
+      applyPromoButton.removeAttribute("aria-busy");
+    }
+  }
+};
+
 // --- Checkout flow ---
 const hydrateCheckoutInputsFromState = () => {
   if (checkoutFieldName) checkoutFieldName.value = checkoutState.name;
@@ -636,6 +783,7 @@ const setCheckoutStep = (step) => {
     paymentSection.hidden = !showPayment;
     if (checkoutActions) checkoutActions.hidden = showPayment;
   }
+  if (step === "review") syncPromoUI();
   renderDeliveryMinUI(cart);
 };
 
@@ -723,7 +871,8 @@ const openCheckout = () => {
     renderCheckoutSummary(checkoutSummary, pendingOrder.cartSnapshot || cart);
     updateTotalsBlock(
       checkoutTotals,
-      pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true, true),
+      pendingOrder.totals ||
+        calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true, true, checkoutState.discount),
     );
     updateCheckoutUI();
     if (placeOrderBtn) placeOrderBtn.disabled = true;
@@ -1028,6 +1177,12 @@ document.addEventListener("keydown", (event) => {
       closeModal(modal);
     });
   }
+
+  const target = event.target;
+  if (event.key === "Enter" && target instanceof HTMLElement && target.matches("[data-promo-input]")) {
+    event.preventDefault();
+    applyPromo();
+  }
 });
 
 // --- Event delegation ---
@@ -1044,6 +1199,12 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const applyPromoClick = event.target.closest("[data-apply-promo]");
+  if (applyPromoClick) {
+    await applyPromo();
+    return;
+  }
+
   const setOrderTypeButton = event.target.closest("[data-set-order-type]");
   if (setOrderTypeButton) {
     const nextType = setOrderTypeButton.dataset.setOrderType;
@@ -1054,7 +1215,10 @@ document.addEventListener("click", async (event) => {
       updateCartTotals(cart);
       updateCartBar(cart);
       if (isCheckoutOpen() && isReviewStepActive()) {
-        updateTotalsBlock(checkoutTotals, calculateTotals(cart, checkoutState.orderType, true, true));
+        updateTotalsBlock(
+          checkoutTotals,
+          calculateTotals(cart, checkoutState.orderType, true, true, checkoutState.discount),
+        );
       }
       if (pendingOrder) {
         resetPendingPaymentUI("Order type changed. Please place the order again to continue to payment.");
@@ -1073,7 +1237,14 @@ document.addEventListener("click", async (event) => {
       renderCheckoutSummary(checkoutSummary, pendingOrder.cartSnapshot || cart);
       updateTotalsBlock(
         checkoutTotals,
-        pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true, true),
+        pendingOrder.totals ||
+          calculateTotals(
+            pendingOrder.cartSnapshot || cart,
+            checkoutState.orderType,
+            true,
+            true,
+            checkoutState.discount,
+          ),
       );
       updateCheckoutUI();
       setPaymentSectionVisible(true);
@@ -1130,7 +1301,10 @@ document.addEventListener("click", async (event) => {
     if (checkoutError) checkoutError.hidden = true;
     setCheckoutStep("review");
     renderCheckoutSummary(checkoutSummary, cart);
-    updateTotalsBlock(checkoutTotals, calculateTotals(cart, checkoutState.orderType, true, true));
+    updateTotalsBlock(
+      checkoutTotals,
+      calculateTotals(cart, checkoutState.orderType, true, true, checkoutState.discount),
+    );
     return;
   }
 
@@ -1265,12 +1439,13 @@ document.addEventListener("click", async (event) => {
     if (checkoutError) checkoutError.hidden = true;
 
     const cartSnapshot = { ...cart };
-    const totals = calculateTotals(cartSnapshot, checkoutState.orderType, true, true);
+    const totals = calculateTotals(cartSnapshot, checkoutState.orderType, true, true, checkoutState.discount);
     const payload = {
       customer_name: checkoutState.name,
       customer_phone: checkoutState.phone,
       fulfillment_type: checkoutState.orderType,
       delivery_address: checkoutState.orderType === "delivery" ? checkoutState.address : null,
+      promo_code: checkoutState.promoCode,
       items: Object.entries(cartSnapshot).map(([id, qty]) => ({ id: Number(id), qty })),
     };
 
