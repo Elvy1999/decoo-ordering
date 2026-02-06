@@ -505,6 +505,7 @@ const deliveryDisabledMsg = document.querySelector("[data-delivery-disabled-msg]
 const checkoutFieldName = document.querySelector('[data-field="name"]');
 const checkoutFieldPhone = document.querySelector('[data-field="phone"]');
 const checkoutFieldAddress = document.querySelector('[data-field="address"]');
+const checkoutSummary = document.querySelector("[data-checkout-summary]");
 const checkoutTotals = document.querySelector("[data-checkout-totals]");
 const checkoutActions = document.querySelector("[data-checkout-actions]");
 const confirmationSummary = document.querySelector("[data-confirmation-summary]");
@@ -607,6 +608,7 @@ function resetPendingPaymentUI(message) {
 
   if (isReviewStepActive()) {
     setCheckoutStep("review");
+    renderCheckoutSummary(checkoutSummary, cart);
   }
 }
 
@@ -718,6 +720,7 @@ const openCheckout = () => {
     }
     if (checkoutError) checkoutError.hidden = true;
     setCheckoutStep("review");
+    renderCheckoutSummary(checkoutSummary, pendingOrder.cartSnapshot || cart);
     updateTotalsBlock(
       checkoutTotals,
       pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true, true),
@@ -1067,6 +1070,7 @@ document.addEventListener("click", async (event) => {
         checkoutState.orderType = pendingOrder.orderType;
       }
       setCheckoutStep("review");
+      renderCheckoutSummary(checkoutSummary, pendingOrder.cartSnapshot || cart);
       updateTotalsBlock(
         checkoutTotals,
         pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true, true),
@@ -1125,6 +1129,7 @@ document.addEventListener("click", async (event) => {
     }
     if (checkoutError) checkoutError.hidden = true;
     setCheckoutStep("review");
+    renderCheckoutSummary(checkoutSummary, cart);
     updateTotalsBlock(checkoutTotals, calculateTotals(cart, checkoutState.orderType, true, true));
     return;
   }
@@ -1236,6 +1241,7 @@ document.addEventListener("click", async (event) => {
         checkoutError.hidden = false;
       }
       setCheckoutStep("review");
+      renderCheckoutSummary(checkoutSummary, pendingOrder.cartSnapshot || cart);
       setPaymentSectionVisible(true);
       initCloverPayment();
       return;
@@ -1310,6 +1316,7 @@ document.addEventListener("click", async (event) => {
       setPaymentError("");
       if (checkoutError) checkoutError.hidden = true;
       setCheckoutStep("review");
+      renderCheckoutSummary(checkoutSummary, cartSnapshot);
       updateTotalsBlock(checkoutTotals, totals);
       if (placeOrderBtn) placeOrderBtn.disabled = true;
       setPaymentSectionVisible(true);
