@@ -911,8 +911,8 @@ p {
   font-weight: 800;
   line-height: 1.2;
   text-align: center;
-  color: #d6a500;
-  letter-spacing: 0.2px;
+  color: #c89b3c;
+  letter-spacing: 0.3px;
 }
 .menu-section-title::after {
   content: "";
@@ -921,13 +921,7 @@ p {
   height: 3px;
   margin: 8px auto 0;
   border-radius: 99px;
-  background: rgba(214, 165, 0, 0.55);
-}
-.menu-section-title--gold {
-  color: #f5c542;
-}
-.menu-section-title--gold::after {
-  background: rgba(245, 197, 66, 0.55);
+  background: #f2c94c;
 }
 .menu-section-list .price-list {
   margin-top: 8px;
