@@ -16,6 +16,7 @@ const ADMIN_MENU_PATH = `${ADMIN_ROUTE_BASE}menu`;
 const ADMIN_MENU_ITEM_PATH = `${ADMIN_ROUTE_BASE}menu-item`;
 const ADMIN_ORDERS_PATH = `${ADMIN_ROUTE_BASE}orders`;
 const ADMIN_ORDER_PATH = `${ADMIN_ROUTE_BASE}order`;
+const ADMIN_REPRINT_PATH = "/api/admin?route=reprint";
 
 const newOrderSound = new Audio("/order_sound.mp3");
 newOrderSound.volume = 0.7;
@@ -540,6 +541,7 @@ const loadOrderDetail = async (id) => {
 const renderOrderDetail = (order, items) => {
   if (!orderDetail) return;
   const hasStatus = typeof order.status !== "undefined";
+  const hasCloverOrderId = Boolean(order.clover_order_id);
   const itemsList = items
     .map(
       (item) =>
@@ -565,6 +567,18 @@ const renderOrderDetail = (order, items) => {
     <div class="helper" style="margin-top:8px;">
       <strong>Address:</strong> ${order.delivery_address || "Pickup"}
     </div>
+    ${
+      hasCloverOrderId
+        ? `<div class="helper" style="margin-top:8px;">
+      <strong>Clover Order ID:</strong> ${order.clover_order_id}
+    </div>
+    <div class="field" style="margin-top:12px;">
+      <button class="btn btn--small" id="order-reprint" type="button">Reprint</button>
+    </div>`
+        : `<div class="helper" style="margin-top:8px;">
+      No Clover order id (was not pushed to POS).
+    </div>`
+    }
     ${hasStatus ? `<div class="field" style="margin-top:12px;">
       <label for="order-status">Status</label>
       <input id="order-status" type="text" value="${order.status ?? ""}" />
@@ -593,6 +607,21 @@ const renderOrderDetail = (order, items) => {
         showToast(error.message || "Failed to update status.", "error");
       } finally {
         statusBtn.disabled = false;
+      }
+    });
+  }
+
+  if (hasCloverOrderId) {
+    const reprintBtn = orderDetail.querySelector("#order-reprint");
+    reprintBtn.addEventListener("click", async () => {
+      reprintBtn.disabled = true;
+      try {
+        await apiFetch(`${ADMIN_REPRINT_PATH}&id=${order.id}`, { method: "POST" });
+        showToast("Print requested.");
+      } catch (error) {
+        showToast(error.message, "error");
+      } finally {
+        reprintBtn.disabled = false;
       }
     });
   }

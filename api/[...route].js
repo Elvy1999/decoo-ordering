@@ -8,6 +8,7 @@ import handleAdminMenu from "./_handlers/admin/menu.js";
 import handleAdminMenuItem from "./_handlers/admin/menuItem.js";
 import handleAdminOrder from "./_handlers/admin/order.js";
 import handleAdminOrders from "./_handlers/admin/orders.js";
+import handleAdminReprint from "./_handlers/admin/reprint.js";
 import handleAdminSettings from "./_handlers/admin/settings.js";
 import { ok, fail, methodNotAllowed } from "./_handlers/shared.js";
 
@@ -39,6 +40,7 @@ export default async function handler(req, res) {
   if (path === "/health") return handleHealth(req, res);
   if (path === "/validate-delivery") return handleValidateDelivery(req, res);
   if (path === "/diag") return handleDiag(req, res);
+  if (path === "/reprint") return handleAdminReprint(req, res);
 
   if (path === "/version") {
     if (req.method !== "GET") return methodNotAllowed(res, ["GET"]);
@@ -62,6 +64,8 @@ export default async function handler(req, res) {
         return handleAdminOrder(req, res);
       case "settings":
         return handleAdminSettings(req, res);
+      case "reprint":
+        return handleAdminReprint(req, res);
       default:
         return fail(res, 404, "NOT_FOUND", "Admin endpoint not found.");
     }

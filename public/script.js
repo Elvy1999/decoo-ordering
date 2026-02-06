@@ -1,4 +1,5 @@
 const CART_KEY = "decoo_cart";
+const DELIVERY_MIN_TOTAL = 15;
 
 let appSettings = null;
 let itemById = {};
@@ -146,40 +147,32 @@ const calculateTotals = (cartState, orderType = "pickup", includeDeliveryFee = f
 
 const getDeliveryMinState = (cartState) => {
   const subtotal = getCartSubtotal(cartState);
-  const min = appSettings?.deliveryMinTotal ?? 0;
+  const min = DELIVERY_MIN_TOTAL;
   const isDelivery = checkoutState.orderType === "delivery";
   if (!isDelivery) return { show: false, subtotal, min, shortfall: 0, meetsMin: true };
 
   const shortfall = Math.max(0, min - subtotal);
   const meetsMin = shortfall <= 0.00001;
-  return { show: true, subtotal, min, shortfall, meetsMin };
+  return { show: shortfall > 0.00001, subtotal, min, shortfall, meetsMin };
 };
 
-let showDeliveryMinWarning = false;
+const DELIVERY_MIN_SHORTFALL_ERROR = "__DELIVERY_MIN_SHORTFALL__";
 
 const renderDeliveryMinUI = (cartState) => {
   const state = getDeliveryMinState(cartState);
 
   const box = document.querySelector("[data-delivery-min]");
   const text = document.querySelector("[data-delivery-min-text]");
-  const boxReview = document.querySelector("[data-delivery-min-review]");
-  const textReview = document.querySelector("[data-delivery-min-review-text]");
 
-  if (!state.show || !showDeliveryMinWarning) {
+  if (!state.show) {
     if (box) box.hidden = true;
-    if (boxReview) boxReview.hidden = true;
     return;
   }
 
-  const message = state.meetsMin
-    ? `Delivery minimum: ${formatMoney(state.min)} (before fees). Subtotal: ${formatMoney(state.subtotal)} ✅`
-    : `Delivery minimum: ${formatMoney(state.min)} (before fees). Subtotal: ${formatMoney(state.subtotal)} — add ${formatMoney(state.shortfall)} more.`;
+  const message = `Delivery minimum: ${formatMoney(state.min)} (before fees). Subtotal: ${formatMoney(state.subtotal)} — add ${formatMoney(state.shortfall)} more.`;
 
   if (box) box.hidden = false;
   if (text) text.textContent = message;
-
-  if (boxReview) boxReview.hidden = false;
-  if (textReview) textReview.textContent = message;
 };
 
 const loadCart = () => {
@@ -354,7 +347,7 @@ const updateMenuItemQtyById = (id, qty) => {
 const updateCartTotals = (cartState) => {
   const totalsEl = document.querySelector("[data-cart-totals]");
   if (!totalsEl) return;
-  const { subtotal, processingFee, deliveryFee, tax, total } = calculateTotals(
+  const { subtotal, processingFee, deliveryFee, total } = calculateTotals(
     cartState,
     checkoutState.orderType,
     false,
@@ -363,19 +356,14 @@ const updateCartTotals = (cartState) => {
   const subtotalEl = totalsEl.querySelector("[data-subtotal]");
   const feeEl = totalsEl.querySelector("[data-fee]");
   const deliveryEl = totalsEl.querySelector("[data-delivery-fee]");
-  const taxEl = totalsEl.querySelector("[data-tax]");
   const totalEl = totalsEl.querySelector("[data-total]");
   if (subtotalEl) subtotalEl.textContent = formatMoney(subtotal);
   if (feeEl) feeEl.textContent = formatMoney(processingFee);
   if (deliveryEl) deliveryEl.textContent = formatMoney(deliveryFee);
-  if (taxEl) taxEl.textContent = formatMoney(tax);
   if (totalEl) totalEl.textContent = formatMoney(total);
 
   const feeRow = feeEl?.closest(".totals__row");
   if (feeRow) feeRow.hidden = true;
-
-  const taxRow = taxEl?.closest(".totals__row");
-  if (taxRow) taxRow.hidden = true;
 
   const deliveryRow = deliveryEl?.closest(".totals__row");
   if (deliveryRow) deliveryRow.hidden = true;
@@ -386,7 +374,6 @@ const updateTotalsBlock = (container, totals) => {
   const subtotalEl = container.querySelector("[data-subtotal]");
   const feeEl = container.querySelector("[data-fee]");
   const deliveryEl = container.querySelector("[data-delivery-fee]");
-  const taxEl = container.querySelector("[data-tax]");
   const totalEl = container.querySelector("[data-total]");
   if (subtotalEl) subtotalEl.textContent = formatMoney(totals.subtotal);
   if (feeEl) feeEl.textContent = formatMoney(totals.processingFee);
@@ -395,7 +382,6 @@ const updateTotalsBlock = (container, totals) => {
     const deliveryRow = deliveryEl.closest(".totals__row");
     if (deliveryRow) deliveryRow.hidden = !(totals.deliveryFee > 0);
   }
-  if (taxEl) taxEl.textContent = formatMoney(totals.tax);
   if (totalEl) totalEl.textContent = formatMoney(totals.total);
 };
 
@@ -476,16 +462,9 @@ const syncUIAfterCartChange = (cartState, changedId) => {
   updateClearCartButton(cartState);
   updateCheckoutButton(cartState);
   updateCartBar(cartState);
-  if (showDeliveryMinWarning) {
-    const state = getDeliveryMinState(cartState);
-    if (!state.show || state.meetsMin) {
-      showDeliveryMinWarning = false;
-    }
-  }
   renderDeliveryMinUI(cartState);
 
   if (isCheckoutOpen() && isReviewStepActive()) {
-    renderCheckoutSummary(checkoutSummary, cartState);
     updateTotalsBlock(checkoutTotals, calculateTotals(cartState, checkoutState.orderType, true, true));
   }
 
@@ -524,7 +503,6 @@ const deliveryDisabledMsg = document.querySelector("[data-delivery-disabled-msg]
 const checkoutFieldName = document.querySelector('[data-field="name"]');
 const checkoutFieldPhone = document.querySelector('[data-field="phone"]');
 const checkoutFieldAddress = document.querySelector('[data-field="address"]');
-const checkoutSummary = document.querySelector("[data-checkout-summary]");
 const checkoutTotals = document.querySelector("[data-checkout-totals]");
 const checkoutActions = document.querySelector("[data-checkout-actions]");
 const confirmationSummary = document.querySelector("[data-confirmation-summary]");
@@ -692,9 +670,6 @@ function updateCheckoutUI() {
     deliveryBtn.classList.toggle("segmented__btn--active", checkoutState.orderType === "delivery");
   }
 
-  if (checkoutState.orderType !== "delivery") {
-    showDeliveryMinWarning = false;
-  }
   renderDeliveryMinUI(cart);
 }
 
@@ -740,9 +715,7 @@ const openCheckout = () => {
       checkoutState.orderType = pendingOrder.orderType;
     }
     if (checkoutError) checkoutError.hidden = true;
-    showDeliveryMinWarning = false;
     setCheckoutStep("review");
-    renderCheckoutSummary(checkoutSummary, pendingOrder.cartSnapshot || cart);
     updateTotalsBlock(
       checkoutTotals,
       pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true, true),
@@ -761,7 +734,6 @@ const openCheckout = () => {
   }
 
   if (checkoutError) checkoutError.hidden = true;
-  showDeliveryMinWarning = false;
   setCheckoutStep("details");
   hydrateCheckoutInputsFromState();
   updateCheckoutUI();
@@ -779,7 +751,6 @@ const validateCheckoutDetails = () => {
     setOrderingClosedBanner(true);
     return "Ordering is currently closed.";
   }
-  showDeliveryMinWarning = false;
   renderDeliveryMinUI(cart);
   if (getCartItemCount(cart) === 0) {
     return "Your cart is empty. Add items before checking out.";
@@ -795,17 +766,12 @@ const validateCheckoutDetails = () => {
     return "Delivery address is required for delivery orders.";
   }
   if (appSettings.deliveryEnabled && checkoutState.orderType === "delivery") {
-    const subtotal = getCartSubtotal(cart);
-    if (subtotal < appSettings.deliveryMinTotal) {
-      const shortfall = appSettings.deliveryMinTotal - subtotal;
-      showDeliveryMinWarning = true;
+    const deliveryMinState = getDeliveryMinState(cart);
+    if (deliveryMinState.shortfall > 0.00001) {
       renderDeliveryMinUI(cart);
-      return `Delivery minimum is ${formatMoney(appSettings.deliveryMinTotal)} before fees. Add ${formatMoney(
-        shortfall,
-      )} more.`;
+      return DELIVERY_MIN_SHORTFALL_ERROR;
     }
   }
-  showDeliveryMinWarning = false;
   renderDeliveryMinUI(cart);
   return "";
 };
@@ -1099,7 +1065,6 @@ document.addEventListener("click", async (event) => {
         checkoutState.orderType = pendingOrder.orderType;
       }
       setCheckoutStep("review");
-      renderCheckoutSummary(checkoutSummary, pendingOrder.cartSnapshot || cart);
       updateTotalsBlock(
         checkoutTotals,
         pendingOrder.totals || calculateTotals(pendingOrder.cartSnapshot || cart, checkoutState.orderType, true, true),
@@ -1112,9 +1077,12 @@ document.addEventListener("click", async (event) => {
     readCheckoutFields();
     const errorMessage = validateCheckoutDetails();
     if (errorMessage) {
-      if (checkoutError) {
+      if (checkoutError && errorMessage !== DELIVERY_MIN_SHORTFALL_ERROR) {
         checkoutError.textContent = errorMessage;
         checkoutError.hidden = false;
+      } else if (checkoutError) {
+        checkoutError.textContent = "";
+        checkoutError.hidden = true;
       }
       return;
     }
@@ -1155,7 +1123,6 @@ document.addEventListener("click", async (event) => {
     }
     if (checkoutError) checkoutError.hidden = true;
     setCheckoutStep("review");
-    renderCheckoutSummary(checkoutSummary, cart);
     updateTotalsBlock(checkoutTotals, calculateTotals(cart, checkoutState.orderType, true, true));
     return;
   }
@@ -1273,9 +1240,12 @@ document.addEventListener("click", async (event) => {
     readCheckoutFields();
     const errorMessage = validateCheckoutDetails();
     if (errorMessage) {
-      if (checkoutError) {
+      if (checkoutError && errorMessage !== DELIVERY_MIN_SHORTFALL_ERROR) {
         checkoutError.textContent = errorMessage;
         checkoutError.hidden = false;
+      } else if (checkoutError) {
+        checkoutError.textContent = "";
+        checkoutError.hidden = true;
       }
       return;
     }
