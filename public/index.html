@@ -308,7 +308,7 @@
         <div class="checkout-step" data-checkout-step="review" hidden>
           <ul class="checkout-summary" data-checkout-summary></ul>
 
-          <div class="promo" data-promo-section>
+          <div class="promo" data-promo-section data-promo-context="review">
             <label class="promo__label" for="promo-code">Promo code</label>
             <div class="promo__row">
               <input
@@ -339,6 +339,23 @@
           <div class="payment" data-payment-section hidden>
             <p class="payment__title">Payment</p>
             <div class="payment__frame" id="clover-payment-container"></div>
+            <div class="promo" data-promo-section data-promo-context="payment">
+              <label class="promo__label" for="promo-code-payment">Promo code</label>
+              <div class="promo__row">
+                <input
+                  id="promo-code-payment"
+                  type="text"
+                  data-promo-input
+                  placeholder="Enter code"
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="characters"
+                  spellcheck="false"
+                />
+                <button type="button" class="btn btn--primary promo__apply" data-apply-promo>Apply</button>
+              </div>
+              <div class="promo__msg" data-promo-msg hidden></div>
+            </div>
             <p class="form-error" data-payment-error hidden></p>
             <button type="button" class="btn btn--primary payment__pay" data-pay-now>Pay Now</button>
             <button type="button" class="btn btn--ghost payment__edit" data-edit-order>Back to edit</button>

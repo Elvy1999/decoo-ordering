@@ -528,10 +528,13 @@ const deliveryDisabledMsg = document.querySelector("[data-delivery-disabled-msg]
 const checkoutFieldName = document.querySelector('[data-field="name"]');
 const checkoutFieldPhone = document.querySelector('[data-field="phone"]');
 const checkoutFieldAddress = document.querySelector('[data-field="address"]');
-const promoSection = document.querySelector("[data-promo-section]");
-const promoInput = document.querySelector("[data-promo-input]");
-const promoApplyBtn = document.querySelector("[data-apply-promo]");
-const promoMsg = document.querySelector("[data-promo-msg]");
+const promoSections = Array.from(document.querySelectorAll("[data-promo-section]"));
+const promoInputs = Array.from(document.querySelectorAll("[data-promo-input]"));
+const promoApplyBtns = Array.from(document.querySelectorAll("[data-apply-promo]"));
+const promoMsgs = Array.from(document.querySelectorAll("[data-promo-msg]"));
+const promoSection =
+  document.querySelector('[data-promo-section][data-promo-context="review"]') || promoSections[0] || null;
+const paymentPromoSection = document.querySelector('[data-promo-section][data-promo-context="payment"]');
 const discountRow = document.querySelector("[data-discount-row]");
 const checkoutSummary = document.querySelector("[data-checkout-summary]");
 const checkoutTotals = document.querySelector("[data-checkout-totals]");
@@ -673,14 +676,29 @@ const refreshReviewTotals = (cartState = cart) => {
 
 const normalizePromoCode = (code) => String(code || "").trim().toUpperCase();
 
+const getActivePromoInput = () => promoInputs.find((input) => !input.closest("[hidden]")) || promoInputs[0] || null;
+
+const setPromoApplyButtonsBusy = (busy) => {
+  promoApplyBtns.forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    button.disabled = busy;
+    if (busy) {
+      button.setAttribute("aria-busy", "true");
+    } else {
+      button.removeAttribute("aria-busy");
+    }
+  });
+};
+
 const setPromoMessage = (text = "", kind = "") => {
   checkoutState.promoMessage = text || "";
   checkoutState.promoMessageKind = kind === "success" || kind === "error" ? kind : "";
-  if (!promoMsg) return;
-  promoMsg.textContent = checkoutState.promoMessage;
-  promoMsg.hidden = !checkoutState.promoMessage;
-  promoMsg.classList.toggle("promo__msg--success", checkoutState.promoMessageKind === "success");
-  promoMsg.classList.toggle("promo__msg--error", checkoutState.promoMessageKind === "error");
+  promoMsgs.forEach((messageEl) => {
+    messageEl.textContent = checkoutState.promoMessage;
+    messageEl.hidden = !checkoutState.promoMessage;
+    messageEl.classList.toggle("promo__msg--success", checkoutState.promoMessageKind === "success");
+    messageEl.classList.toggle("promo__msg--error", checkoutState.promoMessageKind === "error");
+  });
 };
 
 const setPromoSectionVisible = (visible) => {
@@ -688,10 +706,19 @@ const setPromoSectionVisible = (visible) => {
   promoSection.hidden = !visible;
 };
 
+const setPaymentPromoSectionVisible = (visible) => {
+  if (!paymentPromoSection) return;
+  paymentPromoSection.hidden = !visible;
+};
+
 const clearPromo = ({ clearInput = true, clearMessage = true } = {}) => {
   checkoutState.promoCode = "";
   checkoutState.discountCents = 0;
-  if (clearInput && promoInput) promoInput.value = "";
+  if (clearInput) {
+    promoInputs.forEach((input) => {
+      input.value = "";
+    });
+  }
   if (clearMessage) {
     setPromoMessage("", "");
   }
@@ -699,23 +726,22 @@ const clearPromo = ({ clearInput = true, clearMessage = true } = {}) => {
 };
 
 const syncPromoUI = () => {
-  if (promoInput) promoInput.value = checkoutState.promoCode || "";
+  promoInputs.forEach((input) => {
+    input.value = checkoutState.promoCode || "";
+  });
   setPromoMessage(checkoutState.promoMessage, checkoutState.promoMessageKind);
 };
 
-const applyPromo = async ({ code = "", silent = false } = {}) => {
+const applyPromo = async ({ code = "", silent = false, sourceInput = null } = {}) => {
   if (!isCheckoutOpen() || !isReviewStepActive()) return { ok: false, active: false };
 
   const requestId = ++promoValidationRequestId;
-  const fromInput = code || promoInput?.value || "";
+  const fromInput = code || sourceInput?.value || getActivePromoInput()?.value || "";
   const normalizedCode = normalizePromoCode(fromInput);
   const prevPromoCode = checkoutState.promoCode;
   const prevDiscountCents = Number(checkoutState.discountCents) || 0;
 
-  if (promoApplyBtn) {
-    promoApplyBtn.disabled = true;
-    promoApplyBtn.setAttribute("aria-busy", "true");
-  }
+  setPromoApplyButtonsBusy(true);
 
   if (!normalizedCode) {
     clearPromo({ clearInput: true, clearMessage: true });
@@ -727,9 +753,8 @@ const applyPromo = async ({ code = "", silent = false } = {}) => {
     if (pendingOrder && promoChanged) {
       resetPendingPaymentUI("Promo changed. Please place the order again to continue to payment.");
     }
-    if (promoApplyBtn && requestId === promoValidationRequestId) {
-      promoApplyBtn.disabled = false;
-      promoApplyBtn.removeAttribute("aria-busy");
+    if (requestId === promoValidationRequestId) {
+      setPromoApplyButtonsBusy(false);
     }
     return { ok: true, valid: false };
   }
@@ -739,9 +764,8 @@ const applyPromo = async ({ code = "", silent = false } = {}) => {
     clearPromo({ clearInput: true, clearMessage: true });
     setPromoMessage("Add items before applying a promo code.", "error");
     refreshReviewTotals();
-    if (promoApplyBtn && requestId === promoValidationRequestId) {
-      promoApplyBtn.disabled = false;
-      promoApplyBtn.removeAttribute("aria-busy");
+    if (requestId === promoValidationRequestId) {
+      setPromoApplyButtonsBusy(false);
     }
     return { ok: true, valid: false };
   }
@@ -773,7 +797,9 @@ const applyPromo = async ({ code = "", silent = false } = {}) => {
     if (data.valid) {
       checkoutState.promoCode = normalizePromoCode(data.code || normalizedCode);
       checkoutState.discountCents = Math.max(0, Math.round(Number(data.discount_cents) || 0));
-      if (promoInput) promoInput.value = checkoutState.promoCode;
+      promoInputs.forEach((input) => {
+        input.value = checkoutState.promoCode;
+      });
       setPromoMessage(data.message || "Promo applied.", "success");
     } else {
       clearPromo({ clearInput: false, clearMessage: true });
@@ -799,9 +825,8 @@ const applyPromo = async ({ code = "", silent = false } = {}) => {
     }
     return { ok: false, valid: false };
   } finally {
-    if (promoApplyBtn && requestId === promoValidationRequestId) {
-      promoApplyBtn.disabled = false;
-      promoApplyBtn.removeAttribute("aria-busy");
+    if (requestId === promoValidationRequestId) {
+      setPromoApplyButtonsBusy(false);
     }
   }
 };
@@ -827,7 +852,10 @@ const setCheckoutStep = (step) => {
   }
   const showPayment = step === "review" && Boolean(pendingOrder);
   setPaymentSectionVisible(showPayment);
-  setPromoSectionVisible(step === "review" && !showPayment);
+  if (step !== "review") {
+    setPromoSectionVisible(false);
+    setPaymentPromoSectionVisible(false);
+  }
   if (step === "review") {
     syncPromoUI();
   } else {
@@ -1023,6 +1051,10 @@ const setPaymentSectionVisible = (visible) => {
   if (checkoutActions) checkoutActions.hidden = visible;
   if (isReviewStepActive()) {
     setPromoSectionVisible(!visible);
+    setPaymentPromoSectionVisible(visible);
+  } else {
+    setPromoSectionVisible(false);
+    setPaymentPromoSectionVisible(false);
   }
 };
 
@@ -1243,7 +1275,7 @@ document.addEventListener("keydown", (event) => {
   const target = event.target;
   if (event.key === "Enter" && target instanceof HTMLElement && target.matches("[data-promo-input]")) {
     event.preventDefault();
-    void applyPromo();
+    void applyPromo({ sourceInput: target });
   }
 });
 
@@ -1263,7 +1295,8 @@ document.addEventListener("click", async (event) => {
 
   const applyPromoClick = event.target.closest("[data-apply-promo]");
   if (applyPromoClick) {
-    await applyPromo();
+    const sourceInput = applyPromoClick.closest("[data-promo-section]")?.querySelector("[data-promo-input]");
+    await applyPromo({ sourceInput });
     return;
   }
 

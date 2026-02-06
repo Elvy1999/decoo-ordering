@@ -1307,6 +1307,16 @@ p {
   }
 }
 
+@media (max-width: 768px) {
+  .modal__content {
+    padding-bottom: calc(140px + env(safe-area-inset-bottom));
+  }
+  .checkout-actions,
+  [data-checkout-actions] {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+}
+
 @media (min-width: 1440px) {
   .cart-bar {
     justify-content: center;
