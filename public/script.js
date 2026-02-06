@@ -664,15 +664,22 @@ const bootstrapApp = async () => {
 let modalScrollLockY = 0;
 const MODAL_SCROLL_HINT_THRESHOLD = 12;
 
+const getModalScrollContainer = (modal) => {
+  if (!modal) return null;
+  return modal.querySelector("[data-modal-scroll-body]") || modal.querySelector(".modal__content");
+};
+
 const updateModalScrollIndicator = (modal) => {
   if (!modal) return;
-  const modalContent = modal.querySelector(".modal__content");
-  if (!modalContent) return;
+  const modalScrollContainer = getModalScrollContainer(modal);
+  if (!modalScrollContainer) return;
 
-  const hasOverflow = modalContent.scrollHeight - modalContent.clientHeight > MODAL_SCROLL_HINT_THRESHOLD;
+  const hasOverflow =
+    modalScrollContainer.scrollHeight - modalScrollContainer.clientHeight > MODAL_SCROLL_HINT_THRESHOLD;
   const atBottom =
     !hasOverflow ||
-    modalContent.scrollTop + modalContent.clientHeight >= modalContent.scrollHeight - MODAL_SCROLL_HINT_THRESHOLD;
+    modalScrollContainer.scrollTop + modalScrollContainer.clientHeight >=
+      modalScrollContainer.scrollHeight - MODAL_SCROLL_HINT_THRESHOLD;
 
   modal.classList.toggle("modal--scrollable", hasOverflow);
   modal.classList.toggle("modal--scroll-end", atBottom);
@@ -1342,9 +1349,9 @@ modalCloseButtons.forEach((button) => {
 });
 
 modalBackdrops.forEach((modal) => {
-  const modalContent = modal.querySelector(".modal__content");
-  if (modalContent) {
-    modalContent.addEventListener(
+  const modalScrollContainer = getModalScrollContainer(modal);
+  if (modalScrollContainer) {
+    modalScrollContainer.addEventListener(
       "scroll",
       () => {
         updateModalScrollIndicator(modal);

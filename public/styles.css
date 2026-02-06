@@ -906,10 +906,22 @@ p {
   border-bottom: 1px dashed rgba(0, 0, 0, 0.2);
 }
 .menu-section-title {
-  margin-top: 24px;
-  font-size: 1.05rem;
-  font-weight: 700;
+  margin: 18px 0 10px;
+  font-size: 20px;
+  font-weight: 800;
   line-height: 1.2;
+  text-align: center;
+  color: #d6a500;
+  letter-spacing: 0.2px;
+}
+.menu-section-title::after {
+  content: "";
+  display: block;
+  width: 90px;
+  height: 3px;
+  margin: 8px auto 0;
+  border-radius: 99px;
+  background: rgba(214, 165, 0, 0.55);
 }
 .menu-section-list .price-list {
   margin-top: 8px;
@@ -1339,7 +1351,6 @@ p {
     margin-bottom: calc(18px + env(safe-area-inset-bottom));
     padding-bottom: calc(180px + env(safe-area-inset-bottom));
   }
-  #empanadas-modal .modal__content,
   #alcapurrias-modal .modal__content,
   #quipes-modal .modal__content,
   #pinchos-modal .modal__content,
@@ -1348,6 +1359,37 @@ p {
   #juices-modal .modal__content,
   #beverages-modal .modal__content {
     padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+  #empanadas-modal {
+    align-items: center;
+    padding-top: 24px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+  #empanadas-modal .modal__content {
+    width: calc(100% - 28px);
+    max-width: 520px;
+    max-height: 75vh;
+    margin: 0 auto;
+    margin-bottom: calc(14px + env(safe-area-inset-bottom));
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  #empanadas-modal .empanadas-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 10px;
+  }
+  #empanadas-modal .empanadas-modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: #ffffff;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    z-index: 1;
   }
   .modal.is-open.modal--scrollable:not(.modal--scroll-end)::after {
     content: "Swipe up for more";
