@@ -570,6 +570,18 @@ p {
   background: #8e1c1c;
 }
 
+@keyframes modal-scroll-hint-pulse {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateX(-50%) translateY(-3px);
+    opacity: 1;
+  }
+}
+
 .checkout-steps {
   margin: 0 0 16px;
   font-weight: 600;
@@ -1308,8 +1320,43 @@ p {
 }
 
 @media (max-width: 768px) {
+  .modal.is-open {
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
   .modal__content {
     padding-bottom: calc(140px + env(safe-area-inset-bottom));
+  }
+  .modal.is-open.modal--scrollable:not(.modal--scroll-end)::after {
+    content: "Swipe up for more";
+    position: absolute;
+    left: 50%;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: rgba(17, 17, 17, 0.82);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+    z-index: 2;
+    animation: modal-scroll-hint-pulse 1.6s ease-in-out infinite;
+  }
+  .modal.is-open.modal--scrollable:not(.modal--scroll-end)::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    width: 34px;
+    height: 4px;
+    border-radius: 999px;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+    pointer-events: none;
+    z-index: 2;
   }
   .checkout-actions,
   [data-checkout-actions] {

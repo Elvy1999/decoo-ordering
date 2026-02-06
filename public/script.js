@@ -497,6 +497,7 @@ const syncUIAfterCartChange = (cartState, changedId) => {
     resetPendingPaymentUI("You changed your order. Please place the order again to continue to payment.");
   }
 
+  requestAnimationFrame(updateAllModalScrollIndicators);
   lastSyncedCartSnapshot = { ...cartState };
 };
 
@@ -585,6 +586,25 @@ const bootstrapApp = async () => {
 
 // --- Modal helpers ---
 let modalScrollLockY = 0;
+const MODAL_SCROLL_HINT_THRESHOLD = 12;
+
+const updateModalScrollIndicator = (modal) => {
+  if (!modal) return;
+  const modalContent = modal.querySelector(".modal__content");
+  if (!modalContent) return;
+
+  const hasOverflow = modalContent.scrollHeight - modalContent.clientHeight > MODAL_SCROLL_HINT_THRESHOLD;
+  const atBottom =
+    !hasOverflow ||
+    modalContent.scrollTop + modalContent.clientHeight >= modalContent.scrollHeight - MODAL_SCROLL_HINT_THRESHOLD;
+
+  modal.classList.toggle("modal--scrollable", hasOverflow);
+  modal.classList.toggle("modal--scroll-end", atBottom);
+};
+
+const updateAllModalScrollIndicators = () => {
+  modalBackdrops.forEach((modal) => updateModalScrollIndicator(modal));
+};
 
 const openModal = (modal) => {
   if (!modal) return;
@@ -598,11 +618,13 @@ const openModal = (modal) => {
     document.body.style.left = "0";
     document.body.style.right = "0";
   }
+  requestAnimationFrame(() => updateModalScrollIndicator(modal));
 };
 
 const closeModal = (modal) => {
   if (!modal) return;
   modal.classList.remove("is-open");
+  modal.classList.remove("modal--scrollable", "modal--scroll-end");
   if (!document.querySelector(".modal.is-open")) {
     const topOffset = parseInt(document.body.style.top || "0", 10);
     const restoreScrollY = Number.isFinite(topOffset) ? Math.abs(topOffset) : modalScrollLockY;
@@ -862,6 +884,7 @@ const setCheckoutStep = (step) => {
     setPromoMessage("", "");
   }
   renderDeliveryMinUI(cart);
+  requestAnimationFrame(updateAllModalScrollIndicators);
 };
 
 // Single source of truth for delivery availability + address field behavior.
@@ -1056,6 +1079,7 @@ const setPaymentSectionVisible = (visible) => {
     setPromoSectionVisible(false);
     setPaymentPromoSectionVisible(false);
   }
+  requestAnimationFrame(updateAllModalScrollIndicators);
 };
 
 const setPayNowState = (disabled, label) => {
@@ -1242,12 +1266,24 @@ modalCloseButtons.forEach((button) => {
 });
 
 modalBackdrops.forEach((modal) => {
+  const modalContent = modal.querySelector(".modal__content");
+  if (modalContent) {
+    modalContent.addEventListener(
+      "scroll",
+      () => {
+        updateModalScrollIndicator(modal);
+      },
+      { passive: true },
+    );
+  }
   modal.addEventListener("click", (event) => {
     if (event.target === modal) {
       closeModal(modal);
     }
   });
 });
+
+window.addEventListener("resize", updateAllModalScrollIndicators);
 
 continueButtons.forEach((button) => {
   button.addEventListener("click", (event) => {
