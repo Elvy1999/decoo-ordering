@@ -37,6 +37,28 @@ body {
   line-height: 1.6;
 }
 
+body.modal-open,
+body[style*="overflow: hidden"] {
+  position: fixed;
+  width: 100%;
+}
+
+input,
+textarea,
+select,
+button {
+  font-size: 16px;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+button,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
 img {
   max-width: 100%;
   display: block;
@@ -461,8 +483,10 @@ a {
   padding-bottom: 80px;
   max-width: 520px;
   width: 100%;
-  max-height: 80vh;
+  max-height: 100vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   box-shadow: $shadow-soft;
   position: relative;
 }

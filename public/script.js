@@ -581,17 +581,35 @@ const bootstrapApp = async () => {
 };
 
 // --- Modal helpers ---
+let modalScrollLockY = 0;
+
 const openModal = (modal) => {
   if (!modal) return;
+  const hasOpenModal = Boolean(document.querySelector(".modal.is-open"));
   modal.classList.add("is-open");
-  document.body.style.overflow = "hidden";
+  if (!hasOpenModal) {
+    modalScrollLockY = window.scrollY || window.pageYOffset || 0;
+    document.body.classList.add("modal-open");
+    document.body.style.overflow = "hidden";
+    document.body.style.top = `-${modalScrollLockY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+  }
 };
 
 const closeModal = (modal) => {
   if (!modal) return;
   modal.classList.remove("is-open");
   if (!document.querySelector(".modal.is-open")) {
+    const topOffset = parseInt(document.body.style.top || "0", 10);
+    const restoreScrollY = Number.isFinite(topOffset) ? Math.abs(topOffset) : modalScrollLockY;
+    document.body.classList.remove("modal-open");
     document.body.style.overflow = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    modalScrollLockY = 0;
+    window.scrollTo(0, restoreScrollY);
   }
 };
 

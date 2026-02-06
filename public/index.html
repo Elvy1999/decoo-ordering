@@ -269,7 +269,15 @@
 
           <label class="field">
             <span>Phone *</span>
-            <input type="tel" data-field="phone" autocomplete="tel" inputmode="tel" />
+            <input
+              type="tel"
+              data-field="phone"
+              autocomplete="tel"
+              inputmode="tel"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
           </label>
 
           <div class="field">
@@ -309,6 +317,9 @@
                 data-promo-input
                 placeholder="Enter code"
                 autocomplete="off"
+                autocorrect="off"
+                autocapitalize="characters"
+                spellcheck="false"
               />
               <button type="button" class="btn btn--primary promo__apply" data-apply-promo>Apply</button>
             </div>
