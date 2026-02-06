@@ -597,13 +597,27 @@ p {
 }
 
 .promo__row input {
-  flex: 1;
-  min-width: 0;
+  flex: 0 1 50%;
+  min-width: 140px;
+  max-width: 240px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 10px 14px;
 }
 
 .promo__row .btn {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.promo__apply.btn {
+  padding: 10px 16px;
+  border-width: 1px;
+  box-shadow: none;
+}
+
+.promo__apply.btn:hover {
+  box-shadow: none;
 }
 
 .promo__msg {

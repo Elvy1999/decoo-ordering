@@ -528,6 +528,7 @@ const deliveryDisabledMsg = document.querySelector("[data-delivery-disabled-msg]
 const checkoutFieldName = document.querySelector('[data-field="name"]');
 const checkoutFieldPhone = document.querySelector('[data-field="phone"]');
 const checkoutFieldAddress = document.querySelector('[data-field="address"]');
+const promoSection = document.querySelector("[data-promo-section]");
 const promoInput = document.querySelector("[data-promo-input]");
 const promoApplyBtn = document.querySelector("[data-apply-promo]");
 const promoMsg = document.querySelector("[data-promo-msg]");
@@ -662,6 +663,11 @@ const setPromoMessage = (text = "", kind = "") => {
   promoMsg.hidden = !checkoutState.promoMessage;
   promoMsg.classList.toggle("promo__msg--success", checkoutState.promoMessageKind === "success");
   promoMsg.classList.toggle("promo__msg--error", checkoutState.promoMessageKind === "error");
+};
+
+const setPromoSectionVisible = (visible) => {
+  if (!promoSection) return;
+  promoSection.hidden = !visible;
 };
 
 const clearPromo = ({ clearInput = true, clearMessage = true } = {}) => {
@@ -801,11 +807,9 @@ const setCheckoutStep = (step) => {
       checkoutStepsLabel.textContent = step === "review" ? "Step 2 of 2: Review" : "Step 1 of 2: Details";
     }
   }
-  if (paymentSection) {
-    const showPayment = step === "review" && pendingOrder;
-    paymentSection.hidden = !showPayment;
-    if (checkoutActions) checkoutActions.hidden = showPayment;
-  }
+  const showPayment = step === "review" && Boolean(pendingOrder);
+  setPaymentSectionVisible(showPayment);
+  setPromoSectionVisible(step === "review" && !showPayment);
   if (step === "review") {
     syncPromoUI();
   } else {
@@ -999,6 +1003,9 @@ const setPaymentSectionVisible = (visible) => {
   if (!paymentSection) return;
   paymentSection.hidden = !visible;
   if (checkoutActions) checkoutActions.hidden = visible;
+  if (isReviewStepActive()) {
+    setPromoSectionVisible(!visible);
+  }
 };
 
 const setPayNowState = (disabled, label) => {
