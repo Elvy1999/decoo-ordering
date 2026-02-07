@@ -18,68 +18,38 @@ import { ok, fail, methodNotAllowed } from "./_handlers/shared.js";
 
 function getPath(req) {
   const route = req.query?.route;
-  if (Array.isArray(route)) return `/${route.join("/")}`;
-  if (typeof route === "string") return `/${route}`;
-
-  if (typeof req.url === "string") {
-    const [urlPath] = req.url.split("?");
-    if (!urlPath) return "/";
-    if (urlPath.startsWith("/api/")) return urlPath.slice(4);
-    if (urlPath === "/api") return "/";
-    return urlPath;
-  }
-
+  if (Array.isArray(route)) return "/" + route.join("/");
+  if (typeof route === "string") return "/" + route;
   return "/";
 }
 
 export default async function handler(req, res) {
-  const rawFullPath = getPath(req);
-  let fullPath = rawFullPath.replace(/\/+$/, "");
+  let fullPath = getPath(req).replace(/\/+$/, "");
   if (!fullPath || fullPath === "") fullPath = "/";
   if (!fullPath.startsWith("/")) fullPath = `/${fullPath}`;
-  if (fullPath === "/api") fullPath = "/";
-  else if (fullPath.startsWith("/api/")) fullPath = fullPath.slice(4) || "/";
 
   if (fullPath === "/route-debug") {
     if (req.method !== "GET") return methodNotAllowed(res, ["GET"]);
 
-    // simulate another path if provided
     const simulate = req.query?.path ? String(req.query.path) : null;
-    const simulatedUrl = simulate ? `/api${simulate.startsWith("/") ? simulate : `/${simulate}`}` : null;
-
-    // reuse your getPath logic by temporarily overriding req.url
-    const originalUrl = req.url;
-    const originalQuery = req.query;
-    if (simulatedUrl) {
-      req.url = simulatedUrl;
-      if (originalQuery && typeof originalQuery === "object") {
-        const nextQuery = { ...originalQuery };
-        delete nextQuery.route;
-        req.query = nextQuery;
-      }
+    let simulatedFullPath = "/";
+    if (simulate) {
+      const simulatedRoute = simulate
+        .replace(/^\/+/, "")
+        .split("/")
+        .filter(Boolean);
+      let fp = getPath({ query: { route: simulatedRoute } }).replace(/\/+$/, "");
+      if (!fp || fp === "") fp = "/";
+      if (!fp.startsWith("/")) fp = `/${fp}`;
+      simulatedFullPath = fp;
     }
-
-    const raw = getPath(req);
-    let fp = raw.replace(/\/+$/, "");
-    if (!fp || fp === "") fp = "/";
-    if (!fp.startsWith("/")) fp = `/${fp}`;
-    if (fp === "/api") fp = "/";
-    else if (fp.startsWith("/api/")) fp = fp.slice(4) || "/";
-
-    // restore
-    req.url = originalUrl;
-    req.query = originalQuery;
 
     return ok(res, {
       host: req.headers?.host || null,
-      url: originalUrl,
       route: req.query?.route || null,
-      rawFullPath,
       fullPath,
       simulate,
-      simulatedUrl,
-      simulatedRawFullPath: raw,
-      simulatedFullPath: fp,
+      simulatedFullPath,
     });
   }
 
@@ -92,16 +62,8 @@ export default async function handler(req, res) {
   if (fullPath === "/diag") return handleDiag(req, res);
   if (fullPath === "/reprint") return handleAdminReprint(req, res);
 
-  // Normalize all staff routes
   if (fullPath === "/staff" || fullPath.startsWith("/staff/")) {
     req.staffPath = fullPath;
-    return handleStaff(req, res);
-  }
-
-  // Safety: handle leaked /api prefix
-  if (fullPath.startsWith("/api/staff")) {
-    const staffPath = fullPath.replace(/^\/api/, "");
-    req.staffPath = staffPath;
     return handleStaff(req, res);
   }
 
