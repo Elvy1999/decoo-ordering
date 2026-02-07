@@ -1,5 +1,4 @@
 const CART_KEY = "decoo_cart";
-const DELIVERY_MIN_TOTAL = 15;
 
 let appSettings = null;
 let itemById = {};
@@ -175,7 +174,8 @@ const calculateTotals = (
 
 const getDeliveryMinState = (cartState) => {
   const subtotal = getCartSubtotal(cartState);
-  const min = DELIVERY_MIN_TOTAL;
+  const configuredMin = Number(appSettings?.deliveryMinTotal);
+  const min = Number.isFinite(configuredMin) && configuredMin > 0 ? configuredMin : 0;
   const isDelivery = checkoutState.orderType === "delivery";
   if (!isDelivery) return { show: false, subtotal, min, shortfall: 0, meetsMin: true };
 
