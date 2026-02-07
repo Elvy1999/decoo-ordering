@@ -90,11 +90,12 @@ export default async function handler(req, res) {
     });
 
     const raw = await tokenResp.text();
-    let tokenData;
+
+    let tokenData = null;
     try {
       tokenData = raw ? JSON.parse(raw) : null;
     } catch {
-      tokenData = { raw_html: raw.slice(0, 500) };
+      tokenData = null;
     }
 
     if (!tokenResp.ok) {
@@ -102,26 +103,23 @@ export default async function handler(req, res) {
         ok: false,
         error: "TOKEN_EXCHANGE_FAILED",
         status: tokenResp.status,
-        details: tokenData,
+        raw_head: raw.slice(0, 500),
       });
     }
 
-    const merchantId = tokenData.merchant_id;
-    const accessToken = tokenData.access_token;
-    const refreshToken = tokenData.refresh_token;
-    const expiresIn = Number(tokenData.expires_in);
-    const scope = tokenData.scope || null;
+    const merchantId = tokenData?.merchant_id;
+    const accessToken = tokenData?.access_token;
+    const refreshToken = tokenData?.refresh_token;
+    const expiresIn = Number(tokenData?.expires_in);
+    const scope = tokenData?.scope || null;
 
     if (!merchantId || !accessToken || !refreshToken || !Number.isFinite(expiresIn)) {
       return res.status(400).json({
         ok: false,
         error: "TOKEN_RESPONSE_INCOMPLETE",
-        details: {
-          hasMerchantId: !!merchantId,
-          hasAccessToken: !!accessToken,
-          hasRefreshToken: !!refreshToken,
-          expiresIn,
-        },
+        status: tokenResp.status,
+        raw_head: raw.slice(0, 500),
+        parsed: tokenData,
       });
     }
 
