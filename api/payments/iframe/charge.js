@@ -126,11 +126,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const {
-    CLOVER_ECOMM_PRIVATE_KEY,
-    SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY,
-  } = process.env;
+  const { CLOVER_ECOMM_PRIVATE_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
 
   if (!CLOVER_ECOMM_PRIVATE_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return paymentRequired(res, {
@@ -185,7 +181,10 @@ export default async function handler(req, res) {
     const orderTotalCents = toNumber(order.total_cents);
     const isPaid = order.payment_status === "paid";
 
-    if (computedTotalCents !== orderTotalCents || (clientTotalCents !== null && clientTotalCents !== orderTotalCents)) {
+    if (
+      computedTotalCents !== orderTotalCents ||
+      (clientTotalCents !== null && clientTotalCents !== orderTotalCents)
+    ) {
       return paymentRequired(res, {
         reason: "INVALID_TOTAL",
         order_id: order.id || null,
@@ -211,28 +210,35 @@ export default async function handler(req, res) {
       .eq("order_id", order.id)
       .order("id", { ascending: true });
 
+    console.error("[payment] itemsPayload (raw items)", items);
+
     if (itemsError) throw itemsError;
 
     const noteText = buildOrderNote(order);
     const orderDescription = `Decoo Online Order ${order.order_code || ""}`.trim();
 
-    const { resp: createOrderResp, data: createOrderData } = await fetchJson(`${CLOVER_ECOMM_BASE}/v1/orders`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "Idempotency-Key": createIdempotencyKey(),
+    const { resp: createOrderResp, data: createOrderData } = await fetchJson(
+      `${CLOVER_ECOMM_BASE}/v1/orders`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "Idempotency-Key": createIdempotencyKey(),
+        },
+        body: JSON.stringify({
+          currency: "USD",
+          note: noteText,
+          description: orderDescription,
+        }),
       },
-      body: JSON.stringify({
-        currency: "USD",
-        note: noteText,
-        description: orderDescription,
-      }),
-    });
+    );
 
     if (!createOrderResp.ok) {
-      throw new Error(`Clover order create failed (status=${createOrderResp.status}): ${responseSnippet(createOrderData)}`);
+      throw new Error(
+        `Clover order create failed (status=${createOrderResp.status}): ${responseSnippet(createOrderData)}`,
+      );
     }
 
     const cloverOrderId =
@@ -278,7 +284,9 @@ export default async function handler(req, res) {
       });
 
       if (!retryItemResp.ok) {
-        throw new Error(`Clover line item failed (status=${retryItemResp.status}): ${responseSnippet(retryItemData)}`);
+        throw new Error(
+          `Clover line item failed (status=${retryItemResp.status}): ${responseSnippet(retryItemData)}`,
+        );
       }
     }
 
@@ -289,16 +297,19 @@ export default async function handler(req, res) {
       description: orderDescription,
     };
 
-    const { resp: payResp, data: payData } = await fetchJson(`${CLOVER_ECOMM_BASE}/v1/orders/${cloverOrderId}/pay`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "Idempotency-Key": createIdempotencyKey(),
+    const { resp: payResp, data: payData } = await fetchJson(
+      `${CLOVER_ECOMM_BASE}/v1/orders/${cloverOrderId}/pay`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "Idempotency-Key": createIdempotencyKey(),
+        },
+        body: JSON.stringify(payPayload),
       },
-      body: JSON.stringify(payPayload),
-    });
+    );
 
     if (!payResp.ok) {
       const payReason =
