@@ -183,6 +183,8 @@ export default async function handler(req, res) {
       });
     }
 
+    const externalOrderNumber = `ORDER-${order.id}`;
+
     const computedTotalCents =
       toNumber(order.subtotal_cents) +
       toNumber(order.processing_fee_cents) +
@@ -255,12 +257,18 @@ export default async function handler(req, res) {
       noteText = `ITEMS:\n${itemsBreakdown}\n` + `----------------\n` + noteText;
     }
 
+    noteText = `ORDER #: ${order.id}\n` + `====================\n` + noteText;
+
     const orderDescription = `Decoo Online Order ${order.order_code || ""}`.trim();
     const orderCreatePayload = {
       currency: "USD",
-      email: customerEmail,
       items: cloverItems,
+      email: customerEmail,
+      externalReferenceId: externalOrderNumber,
+      referenceId: externalOrderNumber,
+      title: externalOrderNumber,
       note: noteText,
+      description: `Online Order #${order.id}`,
     };
 
     console.error("[payment] ecomm orderCreatePayload", orderCreatePayload);
