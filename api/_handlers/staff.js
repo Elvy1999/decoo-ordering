@@ -11,15 +11,8 @@ function normalizePath(path) {
   return normalized;
 }
 
-function buildPathFromQuery(req) {
-  const routeParam = req.query?.route;
-  if (Array.isArray(routeParam)) return `/staff/${routeParam.join("/")}`;
-  if (typeof routeParam === "string" && routeParam.length > 0) return `/staff/${routeParam}`;
-  return "/staff/";
-}
-
 export default async function handler(req, res) {
-  const fullPath = normalizePath(req.staffPath || buildPathFromQuery(req));
+  const fullPath = normalizePath(req.staffPath);
   const method = String(req.method || "GET").toUpperCase();
   console.log(`[staff] ${method} ${fullPath}`);
 
