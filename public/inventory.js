@@ -53,6 +53,26 @@ const parseErrorMessage = (payload, fallback, status) => {
   return fallback
 }
 
+const normalizeApiPath = (path) => {
+  const raw = String(path || "").trim()
+  if (!raw) return "/"
+
+  if (/^https?:\/\//i.test(raw)) {
+    const url = new URL(raw, window.location.origin)
+    if (/decoorestaurant\.com$/i.test(url.hostname)) {
+      return `${url.pathname}${url.search}`
+    }
+    if (url.origin !== window.location.origin) {
+      throw new Error("Cross-origin API calls are not allowed.")
+    }
+    return `${url.pathname}${url.search}`
+  }
+
+  const cleaned = raw.replace(/^\.\/+/, "")
+  if (cleaned.startsWith("api/")) return `/${cleaned}`
+  return cleaned.startsWith("/") ? cleaned : `/${cleaned}`
+}
+
 const apiFetch = async (path, { method = "GET", body, token, suppressUnauthorizedHandler = false } = {}) => {
   const headers = { Accept: "application/json" }
   const authToken = token ?? getToken()
@@ -64,7 +84,7 @@ const apiFetch = async (path, { method = "GET", body, token, suppressUnauthorize
     payload = JSON.stringify(body)
   }
 
-  const response = await fetch(path, { method, headers, body: payload })
+  const response = await fetch(normalizeApiPath(path), { method, headers, body: payload })
   const raw = await response.text()
 
   let data = null
