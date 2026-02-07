@@ -13,10 +13,7 @@ import handleAdminReprint from "./_handlers/admin/reprint.js";
 import handleAdminSettings from "./_handlers/admin/settings.js";
 import { handleAdminPromoCodes } from "./_handlers/admin/promoCodes.js";
 import { handleAdminPromoCode } from "./_handlers/admin/promoCode.js";
-import handleStaffOrders from "./_handlers/staff/orders.js";
-import handleStaffOrderComplete from "./_handlers/staff/orderComplete.js";
-import handleStaffInventorySections from "./_handlers/staff/inventorySections.js";
-import handleStaffInventoryToggle from "./_handlers/staff/inventoryToggle.js";
+import handleStaff from "./_handlers/staff.js";
 import { ok, fail, methodNotAllowed } from "./_handlers/shared.js";
 
 function getPath(req) {
@@ -50,20 +47,9 @@ export default async function handler(req, res) {
   if (path === "/diag") return handleDiag(req, res);
   if (path === "/reprint") return handleAdminReprint(req, res);
 
-  if (path === "/staff/orders") return handleStaffOrders(req, res);
-
-  const staffOrderCompleteMatch = path.match(/^\/staff\/orders\/([^/]+)\/complete$/);
-  if (staffOrderCompleteMatch) {
-    req.query = { ...(req.query || {}), id: staffOrderCompleteMatch[1] };
-    return handleStaffOrderComplete(req, res);
-  }
-
-  if (path === "/staff/inventory/sections") return handleStaffInventorySections(req, res);
-
-  const staffInventoryToggleMatch = path.match(/^\/staff\/inventory\/([^/]+)\/toggle$/);
-  if (staffInventoryToggleMatch) {
-    req.query = { ...(req.query || {}), id: staffInventoryToggleMatch[1] };
-    return handleStaffInventoryToggle(req, res);
+  if (path === "/staff" || path.startsWith("/staff/")) {
+    req.staffPath = path;
+    return handleStaff(req, res);
   }
 
   if (path === "/version") {

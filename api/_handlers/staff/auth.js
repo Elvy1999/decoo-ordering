@@ -14,12 +14,7 @@ export function requireStaff(req, res) {
   const expectedToken = process.env.STAFF_TOKEN;
   const providedToken = readBearerToken(req);
 
-  if (!expectedToken) {
-    json(res, 500, { error: "STAFF_TOKEN_MISSING" });
-    return false;
-  }
-
-  if (!providedToken || providedToken !== expectedToken) {
+  if (!expectedToken || !providedToken || providedToken !== expectedToken) {
     json(res, 401, { error: "UNAUTHORIZED" });
     return false;
   }
