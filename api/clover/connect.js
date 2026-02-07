@@ -17,6 +17,7 @@ export default function handler(req, res) {
     "https://www.clover.com/oauth/v2/authorize" +
     `?client_id=${encodeURIComponent(clientId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&response_type=code` +
     `&state=${encodeURIComponent(state)}`;
 
   res.writeHead(302, { Location: url });
