@@ -33,26 +33,26 @@ function getPath(req) {
 }
 
 export default async function handler(req, res) {
-  const rawPath = getPath(req);
-  let path = rawPath.replace(/\/+$/, "");
-  if (!path || path === "") path = "/";
-  if (!path.startsWith("/")) path = `/${path}`;
+  const rawFullPath = getPath(req);
+  let fullPath = rawFullPath.replace(/\/+$/, "");
+  if (!fullPath || fullPath === "") fullPath = "/";
+  if (!fullPath.startsWith("/")) fullPath = `/${fullPath}`;
 
-  if (path === "/menu") return handleMenu(req, res);
-  if (path === "/orders") return handleOrders(req, res);
-  if (path === "/settings") return handleSettings(req, res);
-  if (path === "/health") return handleHealth(req, res);
-  if (path === "/validate-delivery") return handleValidateDelivery(req, res);
-  if (path === "/validate-promo") return handleValidatePromo(req, res);
-  if (path === "/diag") return handleDiag(req, res);
-  if (path === "/reprint") return handleAdminReprint(req, res);
+  if (fullPath === "/menu") return handleMenu(req, res);
+  if (fullPath === "/orders") return handleOrders(req, res);
+  if (fullPath === "/settings") return handleSettings(req, res);
+  if (fullPath === "/health") return handleHealth(req, res);
+  if (fullPath === "/validate-delivery") return handleValidateDelivery(req, res);
+  if (fullPath === "/validate-promo") return handleValidatePromo(req, res);
+  if (fullPath === "/diag") return handleDiag(req, res);
+  if (fullPath === "/reprint") return handleAdminReprint(req, res);
 
-  if (path === "/staff" || path.startsWith("/staff/")) {
-    req.staffPath = path;
+  if (fullPath.startsWith("/staff")) {
+    req.staffPath = fullPath;
     return handleStaff(req, res);
   }
 
-  if (path === "/version") {
+  if (fullPath === "/version") {
     if (req.method !== "GET") return methodNotAllowed(res, ["GET"]);
     return ok(res, {
       ok: true,
@@ -61,8 +61,8 @@ export default async function handler(req, res) {
     });
   }
 
-  if (path === "/admin" || path.startsWith("/admin/")) {
-    const adminPath = path.replace(/^\/admin\/?/, "");
+  if (fullPath === "/admin" || fullPath.startsWith("/admin/")) {
+    const adminPath = fullPath.replace(/^\/admin\/?/, "");
     switch (adminPath) {
       case "menu":
         return handleAdminMenu(req, res);
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
     }
   }
 
-  if (path === "/payments" || path.startsWith("/payments/")) {
+  if (fullPath === "/payments" || fullPath.startsWith("/payments/")) {
     return fail(res, 501, "NOT_IMPLEMENTED", "Payments are not configured.");
   }
 
