@@ -1,5 +1,4 @@
 const TOKEN_KEY = "STAFF_TOKEN"
-const STAFF_ORDERS_PATH = "/api/staff/orders"
 const POLL_INTERVAL_MS = 12000
 const REALTIME_CHANNEL = "staff-orders-live"
 
@@ -104,13 +103,46 @@ const apiFetch = async (path, { method = "GET", body, token, suppressUnauthorize
   return data
 }
 
+const fetchStaffOrders = async ({ token, suppressUnauthorizedHandler = false } = {}) => {
+  const headers = { Accept: "application/json" }
+  const authToken = token ?? getToken()
+  if (authToken) headers.Authorization = `Bearer ${authToken}`
+
+  const response = await fetch("/api/staff/orders", { method: "GET", headers })
+  const raw = await response.text()
+
+  let data = null
+  if (raw) {
+    try {
+      data = JSON.parse(raw)
+    } catch {
+      data = null
+    }
+  }
+
+  if (response.status === 401) {
+    if (!suppressUnauthorizedHandler) handleUnauthorized()
+    const unauthorizedError = new Error("Unauthorized")
+    unauthorizedError.status = 401
+    throw unauthorizedError
+  }
+
+  if (!response.ok) {
+    const error = new Error(parseErrorMessage(data, `Request failed (${response.status})`, response.status))
+    error.status = response.status
+    throw error
+  }
+
+  return data
+}
+
 const validateToken = async (token) => {
   if (!token) {
     const error = new Error("Unauthorized")
     error.status = 401
     throw error
   }
-  await apiFetch(STAFF_ORDERS_PATH, { token, suppressUnauthorizedHandler: true })
+  await fetchStaffOrders({ token, suppressUnauthorizedHandler: true })
 }
 
 const formatMoney = (cents) => {
@@ -319,7 +351,7 @@ const applyOrders = (nextOrders) => {
 
 const loadOrders = async ({ silent = false } = {}) => {
   try {
-    const data = await apiFetch(STAFF_ORDERS_PATH)
+    const data = await fetchStaffOrders()
     applyOrders(data)
   } catch (error) {
     if (!silent) showToast(error.message || "Failed to load orders", "error")
