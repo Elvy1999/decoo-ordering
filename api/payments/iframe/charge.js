@@ -214,8 +214,39 @@ export default async function handler(req, res) {
 
     if (itemsError) throw itemsError;
 
+    const cloverLineItems = (items || [])
+      .map((it) => ({
+        name: String(it.item_name || "").trim(),
+        price: Number(it.unit_price_cents),
+        quantity: Number(it.qty),
+      }))
+      .filter(
+        (it) =>
+          it.name &&
+          Number.isFinite(it.price) &&
+          it.price > 0 &&
+          Number.isFinite(it.quantity) &&
+          it.quantity > 0,
+      );
+
+    if (cloverLineItems.length === 0) {
+      return paymentRequired(res, {
+        reason: "NO_VALID_ITEMS_FOR_CLOVER",
+        order_id: order.id || null,
+        computed_total_cents: computedTotalCents,
+        client_total_cents: clientTotalCents,
+        is_paid: false,
+      });
+    }
+
     const noteText = buildOrderNote(order);
     const orderDescription = `Decoo Online Order ${order.order_code || ""}`.trim();
+    const orderCreatePayload = {
+      currency: "USD",
+      note: noteText,
+      line_items: cloverLineItems,
+      description: orderDescription,
+    };
 
     const { resp: createOrderResp, data: createOrderData } = await fetchJson(
       `${CLOVER_ECOMM_BASE}/v1/orders`,
@@ -227,11 +258,7 @@ export default async function handler(req, res) {
           Accept: "application/json",
           "Idempotency-Key": createIdempotencyKey(),
         },
-        body: JSON.stringify({
-          currency: "USD",
-          note: noteText,
-          description: orderDescription,
-        }),
+        body: JSON.stringify(orderCreatePayload),
       },
     );
 
@@ -247,51 +274,8 @@ export default async function handler(req, res) {
       throw new Error("Clover eCommerce order id missing.");
     }
 
-    for (const item of items || []) {
-      const name = String(item.item_name || "").trim() || "Item";
-      const price = toNumber(item.unit_price_cents);
-      const qty = toNumber(item.qty);
-      const lineItemUrl = `${CLOVER_ECOMM_BASE}/v1/orders/${cloverOrderId}/line_items`;
-
-      const { resp: itemResp } = await fetchJson(lineItemUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          price,
-          unitQty: qty,
-        }),
-      });
-
-      if (itemResp.ok) continue;
-
-      const { resp: retryItemResp, data: retryItemData } = await fetchJson(lineItemUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          price,
-          quantity: qty,
-        }),
-      });
-
-      if (!retryItemResp.ok) {
-        throw new Error(
-          `Clover line item failed (status=${retryItemResp.status}): ${responseSnippet(retryItemData)}`,
-        );
-      }
-    }
-
     const payPayload = {
-      amount: toNumber(order.total_cents),
+      amount: Number(order.total_cents),
       currency: "USD",
       source: sourceId,
       description: orderDescription,
@@ -312,12 +296,7 @@ export default async function handler(req, res) {
     );
 
     if (!payResp.ok) {
-      const payReason =
-        payData?.error?.code ||
-        payData?.error?.type ||
-        payData?.code ||
-        payData?.type ||
-        `CLOVER_${payResp.status}`;
+      const payReason = payData?.error?.code || `CLOVER_${payResp.status}`;
 
       return paymentRequired(res, {
         reason: payReason,
