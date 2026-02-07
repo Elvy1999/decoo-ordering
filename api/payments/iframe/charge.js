@@ -51,7 +51,13 @@ const createIdempotencyKey = () => {
 
 const fetchJson = async (url, options) => {
   const resp = await fetch(url, options);
-  const data = await resp.json().catch(() => null);
+  const text = await resp.text();
+  let data = null;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = { raw: text };
+  }
   return { resp, data };
 };
 
@@ -218,68 +224,61 @@ export default async function handler(req, res) {
 
     if (itemsError) throw itemsError;
 
-    const cloverItems = (items || [])
+    const paidItems = (items || [])
       .map((it) => ({
         name: String(it.item_name || "").trim(),
-        amount: Math.round(Number(it.unit_price_cents)),
-        quantity: Number(it.qty),
+        amount: Math.trunc(
+          Number(
+            it.line_total_cents ?? Number(it.unit_price_cents) * Number(it.qty) ?? 0,
+          ),
+        ),
+        quantity: 1,
       }))
-      .filter(
-        (it) =>
-          it.name &&
-          Number.isInteger(it.amount) &&
-          it.amount >= 0 &&
-          Number.isFinite(it.quantity) &&
-          it.quantity > 0,
-      );
+      .filter((it) => it.name && Number.isFinite(it.amount) && it.amount > 0);
 
-    if (!cloverItems.length) {
-      cloverItems.push({
+    if (!paidItems.length) {
+      paidItems.push({
         name: "Online Order",
-        amount: Math.max(0, Math.round(Number(order.total_cents))),
+        amount: Math.max(0, Math.trunc(Number(order.total_cents))),
         quantity: 1,
       });
     }
 
-    const noteText = buildOrderNote(order);
     const orderDescription = `Decoo Online Order ${order.order_code || ""}`.trim();
     const orderCreatePayload = {
       currency: "USD",
-      items: cloverItems,
       email: customerEmail,
-      customer: {
-        email: customerEmail,
-        name: String(order.customer_name || "").trim() || "Customer",
-        phone: String(order.customer_phone || "").trim() || "",
-      },
-      note: noteText,
-      description: orderDescription,
+      items: paidItems,
+      // TEMPORARILY REMOVE these until creation succeeds:
+      // customer: {...}
+      // note: noteText
+      // description: ...
     };
 
     console.error("[payment] ecomm orderCreatePayload", orderCreatePayload);
 
-    const { resp: createOrderResp, data: createOrderData } = await fetchJson(
-      `${CLOVER_ECOMM_BASE}/v1/orders`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "Idempotency-Key": createIdempotencyKey(),
-        },
-        body: JSON.stringify(orderCreatePayload),
+    const { resp: orderResp, data: orderData } = await fetchJson(`${CLOVER_ECOMM_BASE}/v1/orders`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Idempotency-Key": createIdempotencyKey(),
       },
-    );
+      body: JSON.stringify(orderCreatePayload),
+    });
 
-    if (!createOrderResp.ok) {
+    if (!orderResp.ok) {
+      console.error("[payment] ecomm order create failed", {
+        status: orderResp.status,
+        body: orderData,
+      });
       throw new Error(
-        `Clover order create failed (status=${createOrderResp.status}): ${responseSnippet(createOrderData)}`,
+        `Clover order create failed (status=${orderResp.status}): ${responseSnippet(orderData)}`,
       );
     }
 
-    const cloverOrderId =
-      createOrderData?.id || createOrderData?.order?.id || createOrderData?.data?.id || null;
+    const cloverOrderId = orderData?.id || orderData?.order?.id || orderData?.data?.id || null;
     if (!cloverOrderId) {
       throw new Error("Clover eComm order id missing");
     }
