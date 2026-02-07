@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Decoo Staff</title>
+    <link rel="icon" href="/favicon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f7f3ec;
+        --panel: #fffdfa;
+        --text: #1f1a15;
+        --muted: #6f6358;
+        --accent: #c45433;
+        --accent-dark: #8f3c24;
+        --line: #eadfce;
+        --ok: #1f7a3b;
+        --warn: #9a3f27;
+        --danger: #b3261e;
+        --shadow: 0 16px 36px rgba(58, 40, 25, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Source Sans 3", sans-serif;
+        background: radial-gradient(circle at top right, #fff9f0 0%, var(--bg) 38%, #f1e8de 100%);
+        color: var(--text);
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 250, 243, 0.98);
+        backdrop-filter: blur(8px);
+      }
+
+      .topbar__inner {
+        width: min(1120px, 94%);
+        margin: 0 auto;
+        padding: 12px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .brand {
+        margin: 0;
+        font-family: "Playfair Display", serif;
+        font-size: 1.35rem;
+      }
+
+      .topbar__actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 14px;
+        min-height: 44px;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          transform 0.15s ease,
+          background-color 0.15s ease;
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .btn--accent {
+        color: #fff;
+        background: var(--accent);
+      }
+
+      .btn--accent:hover:not(:disabled) {
+        background: var(--accent-dark);
+      }
+
+      .btn--ghost {
+        background: transparent;
+        color: var(--accent);
+        border: 1px solid var(--accent);
+      }
+
+      .btn--ghost:hover:not(:disabled) {
+        transform: translateY(-1px);
+      }
+
+      .shell {
+        width: min(1120px, 94%);
+        margin: 14px auto 24px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        padding: 14px;
+      }
+
+      .panel h2,
+      .panel h3 {
+        margin: 0;
+        font-family: "Playfair Display", serif;
+      }
+
+      .helper {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      #logout-btn {
+        display: none;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 10px 0 12px;
+      }
+
+      .field input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        font: inherit;
+        font-size: 16px;
+        background: #fffaf4;
+      }
+
+      .app-layout {
+        display: grid;
+        gap: 14px;
+      }
+
+      .orders-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .orders-list {
+        max-height: 55vh;
+        overflow-y: auto;
+        display: grid;
+        gap: 10px;
+        padding-right: 2px;
+      }
+
+      .order-row {
+        border: 1px solid var(--line);
+        background: #fff8ef;
+        border-radius: 14px;
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 1.1fr 1fr auto;
+        gap: 10px;
+        cursor: pointer;
+      }
+
+      .order-row.is-selected {
+        border-color: var(--accent);
+        box-shadow: inset 0 0 0 1px rgba(196, 84, 51, 0.3);
+      }
+
+      .order-code {
+        font-size: 1.2rem;
+        font-weight: 800;
+        line-height: 1.1;
+      }
+
+      .order-meta,
+      .order-type {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 0.94rem;
+        line-height: 1.2;
+      }
+
+      .order-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .pill {
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+
+      .pill--open {
+        background: #fce8e3;
+        color: var(--warn);
+      }
+
+      .pill--done {
+        background: #e7f5ec;
+        color: var(--ok);
+      }
+
+      .order-toggle {
+        min-height: 44px;
+        border-radius: 12px;
+        border: none;
+        padding: 10px 12px;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        color: #fff;
+        background: var(--accent);
+      }
+
+      .order-toggle.done {
+        background: #2f7d45;
+      }
+
+      .details-panel {
+        height: 42vh;
+        overflow-y: auto;
+      }
+
+      .details-block {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+        margin-top: 10px;
+        background: #fff9f2;
+      }
+
+      .details-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 12px;
+        margin-top: 8px;
+      }
+
+      .details-grid span {
+        color: var(--muted);
+      }
+
+      .items-list {
+        list-style: none;
+        margin: 8px 0 0;
+        padding: 0;
+      }
+
+      .items-list li {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        border-bottom: 1px dashed var(--line);
+        padding: 6px 0;
+      }
+
+      .totals {
+        margin: 8px 0 0;
+        display: grid;
+        gap: 4px;
+      }
+
+      .totals-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .totals-row.total {
+        font-size: 1.08rem;
+        font-weight: 800;
+      }
+
+      .note {
+        margin-top: 8px;
+        white-space: pre-wrap;
+      }
+
+      .empty-state {
+        color: var(--muted);
+        border: 1px dashed var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+      }
+
+      .toast {
+        position: fixed;
+        right: 16px;
+        bottom: 18px;
+        z-index: 50;
+        background: #1f1b16;
+        color: #fff;
+        border-radius: 12px;
+        padding: 11px 14px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(8px);
+        transition:
+          opacity 0.2s ease,
+          transform 0.2s ease;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .toast--success {
+        background: #1f7a3b;
+      }
+
+      .toast--error {
+        background: var(--danger);
+      }
+
+      @media (min-width: 768px) {
+        .brand {
+          font-size: 1.5rem;
+        }
+
+        .app-layout {
+          grid-template-columns: 1.15fr 1fr;
+          align-items: start;
+        }
+
+        .orders-list {
+          max-height: 60vh;
+        }
+
+        .details-panel {
+          height: 60vh;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .order-row {
+          grid-template-columns: 1fr;
+        }
+
+        .order-right {
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__inner">
+        <h1 class="brand">Staff</h1>
+        <div class="topbar__actions">
+          <a class="btn btn--ghost" href="/inventory.html">Inventory</a>
+          <button class="btn btn--ghost" id="logout-btn" type="button">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="panel" id="login-panel">
+        <h2>Staff Login</h2>
+        <p class="helper">Enter your staff token to access paid orders.</p>
+        <form id="login-form">
+          <label class="field" for="staff-token-input">
+            <span>Staff Token</span>
+            <input id="staff-token-input" type="password" placeholder="********" autocomplete="off" />
+          </label>
+          <button class="btn btn--accent" id="login-btn" type="submit">Enter</button>
+        </form>
+      </section>
+
+      <section id="staff-app" hidden>
+        <div class="app-layout">
+          <section class="panel">
+            <div class="orders-head">
+              <h2>Paid Orders</h2>
+              <button class="btn btn--ghost" id="refresh-btn" type="button">Refresh</button>
+            </div>
+            <div class="orders-list" id="orders-list"></div>
+          </section>
+
+          <section class="panel details-panel" id="details-panel">
+            <h3>Order Details</h3>
+            <p class="helper">Select an order to view details.</p>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="staff.js" defer></script>
+  </body>
+</html>

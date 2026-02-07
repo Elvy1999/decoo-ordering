@@ -123,7 +123,11 @@ const fetchSettingsAndMenu = async () => {
     const settingsData = await settingsResponse.json();
     const menuRows = await menuResponse.json();
     appSettings = normalizeSettings(settingsData);
-    menuItems = Array.isArray(menuRows) ? menuRows.map(normalizeMenuItem) : [];
+    menuItems = Array.isArray(menuRows)
+      ? menuRows
+          .filter((row) => row?.is_active === true && row?.in_stock === true)
+          .map(normalizeMenuItem)
+      : [];
     itemById = buildItemLookup(menuItems);
     setOrderingEnabledState(appSettings.orderingEnabled);
     setOrderingClosedBanner(!appSettings.orderingEnabled);

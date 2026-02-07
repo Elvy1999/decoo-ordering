@@ -86,7 +86,7 @@ export default async function handler(req, res) {
       redirect_uri: redirectUri,
     });
 
-    const tokenResp = await fetch("https://www.clover.com/oauth/v2/token", {
+    const tokenResp = await fetch("https://api.clover.com/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -96,13 +96,17 @@ export default async function handler(req, res) {
     });
 
     const ct = tokenResp.headers.get("content-type") || "";
+    const location = tokenResp.headers.get("location") || "";
     const raw = await tokenResp.text();
 
     return res.status(200).json({
       ok: tokenResp.ok,
       status: tokenResp.status,
+      redirected: tokenResp.redirected,
+      final_url: tokenResp.url,
+      location,
       content_type: ct,
-      raw_head: raw.slice(0, 400),
+      raw_head: raw.slice(0, 1000),
     });
   } catch (e) {
     return res.status(500).json({ ok: false, error: "SERVER_ERROR", message: e?.message || String(e) });
