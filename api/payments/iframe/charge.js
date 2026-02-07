@@ -243,7 +243,7 @@ export default async function handler(req, res) {
 
     const noteText = buildOrderNote(order);
     const orderDescription = `Decoo Online Order ${order.order_code || ""}`.trim();
-    const customerEmailRaw = String(req.body?.email || order.customer_email || "").trim();
+    const customerEmailRaw = String(req.body?.email || "").trim();
     const customerEmail = customerEmailRaw.includes("@") ? customerEmailRaw : fallbackEmail;
     const orderCreatePayload = {
       currency: "USD",
