@@ -50,9 +50,10 @@ export default async function handler(req, res) {
   try {
     const code = String(req.query.code || "");
     if (!code) {
+      // This is NOT an OAuth callback; it is a Clover launch request (merchant_id/employee_id only).
       return res
         .status(400)
-        .send("Missing code (OAuth did not complete). Please retry /api/clover/connect in a normal browser.");
+        .send("Missing OAuth code. Start from /api/clover/connect (not Clover launch).");
     }
 
     const stateFromQuery = String(req.query.state || "");
@@ -89,67 +90,15 @@ export default async function handler(req, res) {
       }).toString(),
     });
 
+    const ct = tokenResp.headers.get("content-type") || "";
     const raw = await tokenResp.text();
 
-    let tokenData = null;
-    try {
-      tokenData = raw ? JSON.parse(raw) : null;
-    } catch {
-      tokenData = null;
-    }
-
-    if (!tokenResp.ok) {
-      return res.status(400).json({
-        ok: false,
-        error: "TOKEN_EXCHANGE_FAILED",
-        status: tokenResp.status,
-        raw_head: raw.slice(0, 500),
-      });
-    }
-
-    const merchantId = tokenData?.merchant_id;
-    const accessToken = tokenData?.access_token;
-    const refreshToken = tokenData?.refresh_token;
-    const expiresIn = Number(tokenData?.expires_in);
-    const scope = tokenData?.scope || null;
-
-    if (!merchantId || !accessToken || !refreshToken || !Number.isFinite(expiresIn)) {
-      return res.status(400).json({
-        ok: false,
-        error: "TOKEN_RESPONSE_INCOMPLETE",
-        status: tokenResp.status,
-        raw_head: raw.slice(0, 500),
-        parsed: tokenData,
-      });
-    }
-
-    const expiresAt = new Date(Date.now() + Math.max(0, expiresIn - 60) * 1000).toISOString();
-
-    const supabase = supabaseServerClient();
-    const { error } = await supabase.from("clover_tokens").upsert(
-      {
-        merchant_id: merchantId,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        expires_at: expiresAt,
-        scope,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "merchant_id" },
-    );
-
-    if (error) {
-      return res.status(500).json({ ok: false, error: "DB_SAVE_FAILED", details: error });
-    }
-
-    res.setHeader(
-      "Set-Cookie",
-      "clover_oauth_state=; HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure",
-    );
-
-    const successUrl = process.env.CLOVER_OAUTH_SUCCESS_URL || "/admin.html?clover=connected";
-    const joinChar = successUrl.includes("?") ? "&" : "?";
-    return res.redirect(302, `${successUrl}${joinChar}merchant_id=${encodeURIComponent(merchantId)}`);
+    return res.status(200).json({
+      ok: tokenResp.ok,
+      status: tokenResp.status,
+      content_type: ct,
+      raw_head: raw.slice(0, 400),
+    });
   } catch (e) {
     return res.status(500).json({ ok: false, error: "SERVER_ERROR", message: e?.message || String(e) });
   }
