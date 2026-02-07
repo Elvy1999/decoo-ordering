@@ -94,6 +94,9 @@ export default async function handler(req, res) {
 
   // Normalize all staff routes
   if (fullPath === "/staff" || fullPath.startsWith("/staff/")) {
+    if (fullPath === "/staff/_ping") {
+      return ok(res, { hit: "router-staff-block", fullPath, rawFullPath, url: req.url });
+    }
     req.staffPath = fullPath;
     return handleStaff(req, res);
   }
@@ -101,6 +104,9 @@ export default async function handler(req, res) {
   // Safety: handle leaked /api prefix
   if (fullPath.startsWith("/api/staff")) {
     const staffPath = fullPath.replace(/^\/api/, "");
+    if (staffPath === "/staff/_ping") {
+      return ok(res, { hit: "router-staff-block", fullPath, rawFullPath, url: req.url });
+    }
     req.staffPath = staffPath;
     return handleStaff(req, res);
   }

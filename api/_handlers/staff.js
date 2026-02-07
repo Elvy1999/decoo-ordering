@@ -2,7 +2,7 @@ import handleStaffOrders from "./staff/orders.js";
 import handleStaffOrderComplete from "./staff/orderComplete.js";
 import handleStaffInventorySections from "./staff/inventorySections.js";
 import handleStaffInventoryToggle from "./staff/inventoryToggle.js";
-import { fail } from "./shared.js";
+import { ok, fail } from "./shared.js";
 
 function normalizePath(path) {
   let normalized = String(path || "").replace(/\/+$/, "");
@@ -13,6 +13,11 @@ function normalizePath(path) {
 
 export default async function handler(req, res) {
   const fullPath = normalizePath(req.staffPath);
+  const path = fullPath;
+  if (path === "/staff/_ping") {
+    return ok(res, { hit: "staff-handler", path, staffPath: req.staffPath, route: req.query?.route || null });
+  }
+
   const method = String(req.method || "GET").toUpperCase();
   console.log(`[staff] ${method} ${fullPath}`);
 
