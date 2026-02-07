@@ -49,8 +49,16 @@ export default async function handler(req, res) {
   if (fullPath === "/diag") return handleDiag(req, res);
   if (fullPath === "/reprint") return handleAdminReprint(req, res);
 
-  if (fullPath.startsWith("/staff")) {
+  // Normalize all staff routes
+  if (fullPath === "/staff" || fullPath.startsWith("/staff/")) {
     req.staffPath = fullPath;
+    return handleStaff(req, res);
+  }
+
+  // Safety: handle leaked /api prefix
+  if (fullPath.startsWith("/api/staff")) {
+    const staffPath = fullPath.replace(/^\/api/, "");
+    req.staffPath = staffPath;
     return handleStaff(req, res);
   }
 
