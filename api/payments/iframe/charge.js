@@ -217,14 +217,14 @@ export default async function handler(req, res) {
     const cloverItems = (items || [])
       .map((it) => ({
         name: String(it.item_name || "").trim(),
-        price: Number(it.unit_price_cents),
+        amount: Math.round(Number(it.unit_price_cents)),
         quantity: Number(it.qty),
       }))
       .filter(
         (it) =>
           it.name &&
-          Number.isFinite(it.price) &&
-          it.price > 0 &&
+          Number.isInteger(it.amount) &&
+          it.amount >= 0 &&
           Number.isFinite(it.quantity) &&
           it.quantity > 0,
       );
@@ -232,7 +232,7 @@ export default async function handler(req, res) {
     if (!cloverItems.length) {
       cloverItems.push({
         name: "Online Order",
-        price: Number(order.total_cents),
+        amount: Math.max(0, Math.round(Number(order.total_cents))),
         quantity: 1,
       });
     }
