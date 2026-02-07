@@ -7,14 +7,14 @@ import {
   supabaseServerClient,
   isNonEmptyString,
 } from "../../_handlers/shared.js";
+import { getValidCloverAccessToken, resolveCloverMerchantId } from "../../_lib/cloverAuth.js";
+import {
+  createCloverOrder,
+  addOnlineOrderLineItem,
+  printCloverOrder,
+} from "../../_lib/cloverOrders.js";
 
 const CLOVER_ECOMM_BASE = "https://scl.clover.com";
-
-const formatCents = (value) => {
-  const cents = Number(value || 0);
-  if (!Number.isFinite(cents)) return "$0.00";
-  return `$${(cents / 100).toFixed(2)}`;
-};
 
 const responseSnippet = (value, max = 300) => {
   if (value === null || value === undefined) return "";
@@ -26,22 +26,58 @@ const responseSnippet = (value, max = 300) => {
   }
 };
 
-const buildOrderNote = (order) => {
-  const type = String(order.fulfillment_type || "").toUpperCase() || "-";
-  return [
-    `ONLINE ORDER: ${order.order_code || "-"}`,
-    `Promo: ${order.promo_code || "-"}`,
-    `Type: ${type}`,
-    `Name: ${order.customer_name || "-"}`,
-    `Phone: ${order.customer_phone || "-"}`,
-    `Address: ${order.delivery_address || "-"}`,
-    "---",
-    `Subtotal: ${formatCents(order.subtotal_cents)}`,
-    `Processing fee: ${formatCents(order.processing_fee_cents)}`,
-    `Delivery fee: ${formatCents(order.delivery_fee_cents)}`,
-    `Discount: -${formatCents(order.discount_cents)}`,
-    `Total: ${formatCents(order.total_cents)}`,
-  ].join("\n");
+const formatMoney = (cents) => `$${(toNumber(cents) / 100).toFixed(2)}`;
+
+const formatOrderNote = ({
+  orderId,
+  type,
+  name,
+  phone,
+  address,
+  items,
+  subtotalCents,
+  discountCents,
+  totalCents,
+  promoCode,
+}) => {
+  const lines = [];
+  lines.push(`Order #: ${orderId}`);
+  lines.push(`Type: ${String(type || "-").toUpperCase()}`);
+  lines.push(`Name: ${name || "-"}`);
+  lines.push(`Phone: ${phone || "-"}`);
+  if (address) lines.push(`Address: ${address}`);
+  lines.push("");
+  lines.push("Items:");
+  for (const it of items || []) {
+    const qty = Math.max(0, Math.trunc(toNumber(it.qty)));
+    const itemName = String(it.item_name || "").trim() || "Item";
+    const lineTotal =
+      it.line_total_cents === null || it.line_total_cents === undefined
+        ? toNumber(it.unit_price_cents) * qty
+        : toNumber(it.line_total_cents);
+    lines.push(`- ${qty}x ${itemName} (${formatMoney(lineTotal)})`);
+  }
+  lines.push("");
+  lines.push(`Subtotal: ${formatMoney(subtotalCents)}`);
+  if (toNumber(discountCents) > 0) {
+    lines.push(
+      `Discount: -${formatMoney(discountCents)}${promoCode ? ` (${String(promoCode).trim()})` : ""}`,
+    );
+  }
+  lines.push(`Total: ${formatMoney(totalCents)}`);
+  return lines.join("\n");
+};
+
+const shortError = (err) => {
+  if (!err) return "Unknown error";
+  if (typeof err === "string") return err.slice(0, 180);
+  if (typeof err?.message === "string" && err.message.trim().length) return err.message.slice(0, 180);
+  if (typeof err?.error === "string" && err.error.trim().length) return err.error.slice(0, 180);
+  if (typeof err?.details === "string" && err.details.trim().length) return err.details.slice(0, 180);
+  if (typeof err?.error?.message === "string" && err.error.message.trim().length) {
+    return err.error.message.slice(0, 180);
+  }
+  return "Unknown error";
 };
 
 const createIdempotencyKey = () => {
@@ -282,8 +318,8 @@ export default async function handler(req, res) {
       );
     }
 
-    const cloverOrderId = orderData?.id || orderData?.order?.id || orderData?.data?.id || null;
-    if (!cloverOrderId) {
+    const ecommOrderId = orderData?.id || orderData?.order?.id || orderData?.data?.id || null;
+    if (!ecommOrderId) {
       throw new Error("Clover eComm order id missing");
     }
 
@@ -295,12 +331,12 @@ export default async function handler(req, res) {
     };
 
     console.error("[payment] ecomm pay payload", {
-      orderId: cloverOrderId,
+      orderId: ecommOrderId,
       amount: payPayload.amount,
     });
 
     const { resp: payResp, data: payData } = await fetchJson(
-      `${CLOVER_ECOMM_BASE}/v1/orders/${cloverOrderId}/pay`,
+      `${CLOVER_ECOMM_BASE}/v1/orders/${ecommOrderId}/pay`,
       {
         method: "POST",
         headers: {
@@ -337,7 +373,6 @@ export default async function handler(req, res) {
         payment_status: "paid",
         paid_at: new Date().toISOString(),
         clover_payment_id: paymentId,
-        clover_order_id: cloverOrderId,
       })
       .eq("id", order.id);
 
@@ -355,14 +390,102 @@ export default async function handler(req, res) {
       await supabase.rpc("promo_codes_increment_used_count", { p_code: code }).catch(() => null);
     }
 
+    const warnings = [];
+    let posOrderId = null;
+
+    try {
+      const merchantId = await resolveCloverMerchantId(process.env.CLOVER_MERCHANT_ID);
+      const accessToken = await getValidCloverAccessToken(merchantId);
+      const isDelivery = String(order.fulfillment_type || "").toLowerCase() === "delivery";
+      const orderTypeId = isDelivery
+        ? process.env.CLOVER_ORDER_TYPE_DELIVERY_ID
+        : process.env.CLOVER_ORDER_TYPE_PICKUP_ID;
+
+      const posNote = formatOrderNote({
+        orderId: order.id,
+        type: order.fulfillment_type,
+        name: order.customer_name,
+        phone: order.customer_phone,
+        address: order.delivery_address,
+        items,
+        subtotalCents: order.subtotal_cents,
+        discountCents: order.discount_cents,
+        totalCents: order.total_cents,
+        promoCode: order.promo_code,
+      });
+
+      const posOrder = await createCloverOrder({
+        merchantId,
+        accessToken,
+        title: `Online Order #${order.id}`,
+        note: posNote,
+        orderTypeId,
+      });
+
+      posOrderId = posOrder?.id || posOrder?.order?.id || null;
+      if (!posOrderId) throw new Error("Clover POS order id missing");
+
+      await addOnlineOrderLineItem({
+        merchantId,
+        accessToken,
+        cloverOrderId: posOrderId,
+        totalCents: order.total_cents,
+        note: posNote,
+      });
+
+      let printStatus = "ok";
+      let printError = null;
+      try {
+        await printCloverOrder({ merchantId, accessToken, cloverOrderId: posOrderId });
+      } catch (printErr) {
+        printStatus = "failed";
+        printError = shortError(printErr?.details || printErr);
+        warnings.push("CLOVER_PRINT_FAILED");
+        console.error("[payment] Clover print_event failed", {
+          order_id: order.id,
+          merchant_id: merchantId,
+          clover_order_id: posOrderId,
+          error: printErr,
+          details: printErr?.details || null,
+        });
+      }
+
+      const { error: posSaveError } = await supabase
+        .from("orders")
+        .update({
+          clover_order_id: posOrderId,
+          print_status: printStatus,
+          print_error: printError,
+        })
+        .eq("id", order.id);
+
+      if (posSaveError) throw posSaveError;
+    } catch (posErr) {
+      warnings.push("CLOVER_POS_SYNC_FAILED");
+      console.error("[payment] Clover POS sync failed", {
+        order_id: order.id,
+        error: posErr,
+        details: posErr?.details || null,
+      });
+
+      await supabase
+        .from("orders")
+        .update({
+          print_status: "failed",
+          print_error: shortError(posErr?.details || posErr),
+        })
+        .eq("id", order.id)
+        .catch(() => null);
+    }
+
     return ok(res, {
       ok: true,
       order_id: order.id,
       order_code: order.order_code,
       payment_status: "paid",
       clover_payment_id: paymentId,
-      clover_order_id: cloverOrderId,
-      warnings: [],
+      clover_order_id: posOrderId,
+      warnings,
     });
   } catch (err) {
     console.error("[payment] Charge flow failed", err);
