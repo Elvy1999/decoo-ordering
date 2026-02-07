@@ -49,7 +49,11 @@ async function consumeDbOauthState(state) {
 export default async function handler(req, res) {
   try {
     const code = String(req.query.code || "");
-    if (!code) return res.status(400).send("Missing code");
+    if (!code) {
+      return res
+        .status(400)
+        .send("Missing code (OAuth did not complete). Please retry /api/clover/connect in a normal browser.");
+    }
 
     const stateFromQuery = String(req.query.state || "");
     if (!stateFromQuery) return res.status(400).send("Missing OAuth state. Please retry the connect link.");
@@ -85,11 +89,19 @@ export default async function handler(req, res) {
       }).toString(),
     });
 
-    const tokenData = await tokenResp.json();
+    const raw = await tokenResp.text();
+    let tokenData;
+    try {
+      tokenData = raw ? JSON.parse(raw) : null;
+    } catch {
+      tokenData = { raw_html: raw.slice(0, 500) };
+    }
+
     if (!tokenResp.ok) {
       return res.status(400).json({
         ok: false,
         error: "TOKEN_EXCHANGE_FAILED",
+        status: tokenResp.status,
         details: tokenData,
       });
     }
