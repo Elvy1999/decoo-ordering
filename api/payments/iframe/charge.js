@@ -226,40 +226,29 @@ export default async function handler(req, res) {
 
     if (itemsError) throw itemsError;
 
+    const cloverItems = [
+      {
+        name: "Online Order",
+        amount: Math.trunc(Number(order.total_cents)),
+        quantity: 1,
+      },
+    ];
+
     const itemsBreakdown = (items || [])
-      .map((it) => `${Math.trunc(Number(it.qty || 0))} x ${String(it.item_name || "").trim()}`)
-      .filter((line) => !line.startsWith("0 x "))
+      .map((it) => `${Math.trunc(Number(it.qty))} x ${String(it.item_name).trim()}`)
       .join("\n");
 
-    const cloverItems = (items || [])
-      .map((it) => ({
-        name: String(it.item_name || "").trim(),
-        amount: Math.trunc(
-          Number(
-            it.line_total_cents ?? Number(it.unit_price_cents) * Number(it.qty) ?? 0,
-          ),
-        ),
-        quantity: 1,
-      }))
-      .filter((it) => it.name && Number.isFinite(it.amount) && it.amount > 0);
+    let noteText =
+      `ORDER #: ${order.id}\n` +
+      `====================\n` +
+      `ITEMS:\n${itemsBreakdown}\n\n` +
+      `TYPE: ${order.fulfillment_type}\n` +
+      `Name: ${order.customer_name || "-"}\n` +
+      `Phone: ${order.customer_phone || "-"}\n` +
+      (order.delivery_address ? `Address: ${order.delivery_address}\n` : "") +
+      `--------------------\n` +
+      `TOTAL: $${(order.total_cents / 100).toFixed(2)}`;
 
-    if (!cloverItems.length) {
-      cloverItems.push({
-        name: "Online Order",
-        amount: Math.max(0, Math.trunc(Number(order.total_cents))),
-        quantity: 1,
-      });
-    }
-
-    let noteText = buildOrderNote(order);
-
-    if (itemsBreakdown) {
-      noteText = `ITEMS:\n${itemsBreakdown}\n` + `----------------\n` + noteText;
-    }
-
-    noteText = `ORDER #: ${order.id}\n` + `====================\n` + noteText;
-
-    const orderDescription = `Decoo Online Order ${order.order_code || ""}`.trim();
     const orderCreatePayload = {
       currency: "USD",
       items: cloverItems,
@@ -268,7 +257,6 @@ export default async function handler(req, res) {
       referenceId: externalOrderNumber,
       title: externalOrderNumber,
       note: noteText,
-      description: `Online Order #${order.id}`,
     };
 
     console.error("[payment] ecomm orderCreatePayload", orderCreatePayload);
@@ -303,7 +291,7 @@ export default async function handler(req, res) {
       amount: Number(order.total_cents),
       currency: "USD",
       source: sourceId,
-      description: orderDescription,
+      description: `Online Order #${order.id}`,
     };
 
     console.error("[payment] ecomm pay payload", {
