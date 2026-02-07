@@ -138,13 +138,17 @@ export default async function handler(req, res) {
     });
   }
 
+  const fallbackEmail = String(
+    process.env.CLOVER_FALLBACK_EMAIL || "orders@decoorestaurant.com",
+  ).trim();
+
   const supabase = supabaseServerClient();
 
   try {
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .select(
-        "id,payment_status,total_cents,subtotal_cents,processing_fee_cents,delivery_fee_cents,discount_cents,promo_code,order_code,customer_name,customer_phone,fulfillment_type,delivery_address,clover_payment_id,clover_order_id",
+        "id,payment_status,total_cents,subtotal_cents,processing_fee_cents,delivery_fee_cents,discount_cents,promo_code,order_code,customer_name,customer_phone,customer_email,fulfillment_type,delivery_address,clover_payment_id,clover_order_id",
       )
       .eq("id", orderId)
       .single();
@@ -239,9 +243,17 @@ export default async function handler(req, res) {
 
     const noteText = buildOrderNote(order);
     const orderDescription = `Decoo Online Order ${order.order_code || ""}`.trim();
+    const customerEmailRaw = String(req.body?.email || order.customer_email || "").trim();
+    const customerEmail = customerEmailRaw.includes("@") ? customerEmailRaw : fallbackEmail;
     const orderCreatePayload = {
       currency: "USD",
       items: cloverItems,
+      email: customerEmail,
+      customer: {
+        email: customerEmail,
+        name: String(order.customer_name || "").trim() || "Customer",
+        phone: String(order.customer_phone || "").trim() || "",
+      },
       note: noteText,
       description: orderDescription,
     };
