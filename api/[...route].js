@@ -37,6 +37,8 @@ export default async function handler(req, res) {
   let fullPath = rawFullPath.replace(/\/+$/, "");
   if (!fullPath || fullPath === "") fullPath = "/";
   if (!fullPath.startsWith("/")) fullPath = `/${fullPath}`;
+  if (fullPath === "/api") fullPath = "/";
+  else if (fullPath.startsWith("/api/")) fullPath = fullPath.slice(4) || "/";
 
   if (fullPath === "/menu") return handleMenu(req, res);
   if (fullPath === "/orders") return handleOrders(req, res);
