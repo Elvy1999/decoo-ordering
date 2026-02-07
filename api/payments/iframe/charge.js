@@ -214,38 +214,26 @@ export default async function handler(req, res) {
 
     if (itemsError) throw itemsError;
 
-    if (!items || !items.length) {
-      return paymentRequired(res, {
-        reason: "ORDER_HAS_NO_ITEMS",
-        order_id: order.id || null,
-        computed_total_cents: computedTotalCents,
-        client_total_cents: clientTotalCents,
-        is_paid: false,
-      });
-    }
-
-    const validItems = (items || [])
+    const cloverItems = (items || [])
       .map((it) => ({
         name: String(it.item_name || "").trim(),
         price: Number(it.unit_price_cents),
-        qty: Number(it.qty),
+        quantity: Number(it.qty),
       }))
       .filter(
         (it) =>
           it.name &&
           Number.isFinite(it.price) &&
-          it.price >= 0 &&
-          Number.isFinite(it.qty) &&
-          it.qty > 0,
+          it.price > 0 &&
+          Number.isFinite(it.quantity) &&
+          it.quantity > 0,
       );
 
-    if (validItems.length === 0) {
-      return paymentRequired(res, {
-        reason: "NO_VALID_ITEMS_FOR_CLOVER",
-        order_id: order.id || null,
-        computed_total_cents: computedTotalCents,
-        client_total_cents: clientTotalCents,
-        is_paid: false,
+    if (!cloverItems.length) {
+      cloverItems.push({
+        name: "Online Order",
+        price: Number(order.total_cents),
+        quantity: 1,
       });
     }
 
@@ -253,6 +241,7 @@ export default async function handler(req, res) {
     const orderDescription = `Decoo Online Order ${order.order_code || ""}`.trim();
     const orderCreatePayload = {
       currency: "USD",
+      items: cloverItems,
       note: noteText,
       description: orderDescription,
     };
@@ -283,58 +272,6 @@ export default async function handler(req, res) {
       createOrderData?.id || createOrderData?.order?.id || createOrderData?.data?.id || null;
     if (!cloverOrderId) {
       throw new Error("Clover eComm order id missing");
-    }
-
-    for (const it of validItems) {
-      const liPayload = { name: it.name, price: it.price, quantity: it.qty };
-      console.error("[payment] ecomm add line item", liPayload);
-
-      const { resp: liResp, data: liData } = await fetchJson(
-        `${CLOVER_ECOMM_BASE}/v1/orders/${cloverOrderId}/line_items`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            "Idempotency-Key": createIdempotencyKey(),
-          },
-          body: JSON.stringify(liPayload),
-        },
-      );
-
-      if (!liResp.ok) {
-        const bodySnippet = responseSnippet(liData);
-        const quantityRejected =
-          liResp.status === 400 && String(bodySnippet || "").toLowerCase().includes("quantity");
-
-        if (quantityRejected) {
-          const liPayload2 = { name: it.name, price: it.price, unitQty: it.qty };
-          const { resp: liResp2, data: liData2 } = await fetchJson(
-            `${CLOVER_ECOMM_BASE}/v1/orders/${cloverOrderId}/line_items`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
-                "Content-Type": "application/json",
-                Accept: "application/json",
-                "Idempotency-Key": createIdempotencyKey(),
-              },
-              body: JSON.stringify(liPayload2),
-            },
-          );
-
-          if (!liResp2.ok) {
-            throw new Error(
-              `Clover add line item failed (status=${liResp2.status}): ${responseSnippet(liData2)}`,
-            );
-          }
-        } else {
-          throw new Error(
-            `Clover add line item failed (status=${liResp.status}): ${responseSnippet(liData)}`,
-          );
-        }
-      }
     }
 
     const payPayload = {
