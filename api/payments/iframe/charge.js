@@ -224,7 +224,12 @@ export default async function handler(req, res) {
 
     if (itemsError) throw itemsError;
 
-    const paidItems = (items || [])
+    const itemsBreakdown = (items || [])
+      .map((it) => `${Math.trunc(Number(it.qty || 0))} x ${String(it.item_name || "").trim()}`)
+      .filter((line) => !line.startsWith("0 x "))
+      .join("\n");
+
+    const cloverItems = (items || [])
       .map((it) => ({
         name: String(it.item_name || "").trim(),
         amount: Math.trunc(
@@ -236,23 +241,26 @@ export default async function handler(req, res) {
       }))
       .filter((it) => it.name && Number.isFinite(it.amount) && it.amount > 0);
 
-    if (!paidItems.length) {
-      paidItems.push({
+    if (!cloverItems.length) {
+      cloverItems.push({
         name: "Online Order",
         amount: Math.max(0, Math.trunc(Number(order.total_cents))),
         quantity: 1,
       });
     }
 
+    let noteText = buildOrderNote(order);
+
+    if (itemsBreakdown) {
+      noteText = `ITEMS:\n${itemsBreakdown}\n` + `----------------\n` + noteText;
+    }
+
     const orderDescription = `Decoo Online Order ${order.order_code || ""}`.trim();
     const orderCreatePayload = {
       currency: "USD",
       email: customerEmail,
-      items: paidItems,
-      // TEMPORARILY REMOVE these until creation succeeds:
-      // customer: {...}
-      // note: noteText
-      // description: ...
+      items: cloverItems,
+      note: noteText,
     };
 
     console.error("[payment] ecomm orderCreatePayload", orderCreatePayload);
