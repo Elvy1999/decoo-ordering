@@ -78,16 +78,21 @@ export default async function handler(req, res) {
       return res.status(500).send("Server misconfigured (missing Clover env)");
     }
 
+    const params = new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      grant_type: "authorization_code",
+      redirect_uri: redirectUri,
+    });
+
     const tokenResp = await fetch("https://www.clover.com/oauth/v2/token", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        grant_type: "authorization_code",
-        redirect_uri: redirectUri,
-      }).toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: params,
     });
 
     const ct = tokenResp.headers.get("content-type") || "";
