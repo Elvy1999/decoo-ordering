@@ -40,6 +40,17 @@ export default async function handler(req, res) {
   if (fullPath === "/api") fullPath = "/";
   else if (fullPath.startsWith("/api/")) fullPath = fullPath.slice(4) || "/";
 
+  if (fullPath === "/route-debug") {
+    if (req.method !== "GET") return methodNotAllowed(res, ["GET"]);
+    return ok(res, {
+      url: req.url,
+      host: req.headers?.host || null,
+      route: req.query?.route || null,
+      rawFullPath,
+      fullPath,
+    });
+  }
+
   if (fullPath === "/menu") return handleMenu(req, res);
   if (fullPath === "/orders") return handleOrders(req, res);
   if (fullPath === "/settings") return handleSettings(req, res);
