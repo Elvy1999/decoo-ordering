@@ -42,12 +42,44 @@ export default async function handler(req, res) {
 
   if (fullPath === "/route-debug") {
     if (req.method !== "GET") return methodNotAllowed(res, ["GET"]);
+
+    // simulate another path if provided
+    const simulate = req.query?.path ? String(req.query.path) : null;
+    const simulatedUrl = simulate ? `/api${simulate.startsWith("/") ? simulate : `/${simulate}`}` : null;
+
+    // reuse your getPath logic by temporarily overriding req.url
+    const originalUrl = req.url;
+    const originalQuery = req.query;
+    if (simulatedUrl) {
+      req.url = simulatedUrl;
+      if (originalQuery && typeof originalQuery === "object") {
+        const nextQuery = { ...originalQuery };
+        delete nextQuery.route;
+        req.query = nextQuery;
+      }
+    }
+
+    const raw = getPath(req);
+    let fp = raw.replace(/\/+$/, "");
+    if (!fp || fp === "") fp = "/";
+    if (!fp.startsWith("/")) fp = `/${fp}`;
+    if (fp === "/api") fp = "/";
+    else if (fp.startsWith("/api/")) fp = fp.slice(4) || "/";
+
+    // restore
+    req.url = originalUrl;
+    req.query = originalQuery;
+
     return ok(res, {
-      url: req.url,
       host: req.headers?.host || null,
+      url: originalUrl,
       route: req.query?.route || null,
       rawFullPath,
       fullPath,
+      simulate,
+      simulatedUrl,
+      simulatedRawFullPath: raw,
+      simulatedFullPath: fp,
     });
   }
 
