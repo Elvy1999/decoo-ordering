@@ -8,8 +8,7 @@ export default async function handler(req, res) {
       ? [routeParam]
       : [];
 
-  const fullPath = "/staff" + "/" + route.join("/");
-  req.staffPath = fullPath;
+  req.staffPath = "/staff" + "/" + route.join("/");
 
   return handleStaff(req, res);
 }

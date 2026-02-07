@@ -19,19 +19,21 @@ function buildPathFromQuery(req) {
 }
 
 export default async function handler(req, res) {
-  const path = normalizePath(req.staffPath || buildPathFromQuery(req));
+  const fullPath = normalizePath(req.staffPath || buildPathFromQuery(req));
+  const method = String(req.method || "GET").toUpperCase();
+  console.log(`[staff] ${method} ${fullPath}`);
 
-  if (path === "/staff/orders") return handleStaffOrders(req, res);
+  if (fullPath === "/staff/orders") return handleStaffOrders(req, res);
 
-  const staffOrderCompleteMatch = path.match(/^\/staff\/orders\/([^/]+)\/complete$/);
+  const staffOrderCompleteMatch = fullPath.match(/^\/staff\/orders\/([^/]+)\/complete$/);
   if (staffOrderCompleteMatch) {
     req.query = { ...(req.query || {}), id: staffOrderCompleteMatch[1] };
     return handleStaffOrderComplete(req, res);
   }
 
-  if (path === "/staff/inventory/sections") return handleStaffInventorySections(req, res);
+  if (fullPath === "/staff/inventory/sections") return handleStaffInventorySections(req, res);
 
-  const staffInventoryToggleMatch = path.match(/^\/staff\/inventory\/([^/]+)\/toggle$/);
+  const staffInventoryToggleMatch = fullPath.match(/^\/staff\/inventory\/([^/]+)\/toggle$/);
   if (staffInventoryToggleMatch) {
     req.query = { ...(req.query || {}), id: staffInventoryToggleMatch[1] };
     return handleStaffInventoryToggle(req, res);
