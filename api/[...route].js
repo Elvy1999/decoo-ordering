@@ -19,7 +19,7 @@ import { ok, fail, methodNotAllowed } from "./_handlers/shared.js";
 function getPath(req) {
   const route = req.query?.route;
   if (Array.isArray(route)) return "/" + route.join("/");
-  if (typeof route === "string") return "/" + route;
+  if (typeof route === "string" && route.length) return "/" + route;
   return "/";
 }
 
