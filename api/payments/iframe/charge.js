@@ -326,6 +326,10 @@ export default async function handler(req, res) {
     );
 
     if (!payResp.ok) {
+      console.error("[payment] ecomm pay failed", {
+        status: payResp.status,
+        body: payData,
+      });
       const payReason = payData?.error?.code || payData?.error?.type || `CLOVER_${payResp.status}`;
 
       return paymentRequired(res, {
