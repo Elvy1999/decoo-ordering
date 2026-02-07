@@ -2,12 +2,48 @@ import { supabaseServerClient } from "../_lib/supabaseServer.js";
 
 function parseCookies(cookieHeader) {
   const out = {};
-  (cookieHeader || "").split(";").forEach((part) => {
-    const [k, ...rest] = part.trim().split("=");
-    if (!k) return;
-    out[k] = rest.join("=");
-  });
+  for (const part of (cookieHeader || "").split(";")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+
+    const equalsIdx = trimmed.indexOf("=");
+    if (equalsIdx <= 0) continue;
+
+    const key = trimmed.slice(0, equalsIdx).trim();
+    const rawValue = trimmed.slice(equalsIdx + 1).trim();
+    const unquoted =
+      rawValue.startsWith("\"") && rawValue.endsWith("\"")
+        ? rawValue.slice(1, -1)
+        : rawValue;
+
+    try {
+      out[key] = decodeURIComponent(unquoted);
+    } catch {
+      out[key] = unquoted;
+    }
+  }
   return out;
+}
+
+async function consumeDbOauthState(state) {
+  try {
+    const supabase = supabaseServerClient();
+    const { data, error } = await supabase
+      .from("oauth_states")
+      .delete()
+      .eq("state", state)
+      .select("state");
+
+    if (error) {
+      console.warn("Clover OAuth state DB consume failed:", error.message || error);
+      return false;
+    }
+
+    return Array.isArray(data) && data.length > 0;
+  } catch (error) {
+    console.warn("Clover OAuth state DB consume skipped:", error?.message || String(error));
+    return false;
+  }
 }
 
 export default async function handler(req, res) {
@@ -16,9 +52,17 @@ export default async function handler(req, res) {
     if (!code) return res.status(400).send("Missing code");
 
     const stateFromQuery = String(req.query.state || "");
+    if (!stateFromQuery) return res.status(400).send("Missing OAuth state. Please retry the connect link.");
+
     const cookies = parseCookies(req.headers.cookie);
-    if (!stateFromQuery || cookies.clover_oauth_state !== stateFromQuery) {
-      return res.status(400).send("Invalid OAuth state");
+    const cookieState = String(cookies.clover_oauth_state || "");
+    const cookieStateValid = cookieState === stateFromQuery;
+    const dbStateValid = await consumeDbOauthState(stateFromQuery);
+
+    if (!cookieStateValid && !dbStateValid) {
+      return res
+        .status(400)
+        .send("Invalid OAuth state. Please open the connect link in Safari/Chrome (not inside an app).");
     }
 
     const clientId = process.env.CLOVER_CLIENT_ID;
@@ -88,7 +132,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ ok: false, error: "DB_SAVE_FAILED", details: error });
     }
 
-    res.setHeader("Set-Cookie", "clover_oauth_state=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax");
+    res.setHeader(
+      "Set-Cookie",
+      "clover_oauth_state=; HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure",
+    );
 
     const successUrl = process.env.CLOVER_OAUTH_SUCCESS_URL || "/admin.html?clover=connected";
     const joinChar = successUrl.includes("?") ? "&" : "?";
