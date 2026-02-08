@@ -210,24 +210,25 @@ const renderOrders = () => {
   orders.forEach((order) => {
     const idKey = String(order.id)
     const completed = isCompletedOrder(order)
+    const items = Array.isArray(order.items) ? order.items : []
     const row = document.createElement("article")
     row.className = `order-row${idKey === String(selectedOrderId) ? " is-selected" : ""}`
 
-    const left = document.createElement("div")
+    const cardInner = document.createElement("div")
+    cardInner.className = "order-card-main"
+
+    const left = document.createElement("section")
+    left.className = "order-left"
     left.innerHTML = `
       <div class="order-code">${escapeHtml(order.order_code || order.id)}</div>
       <div class="order-meta">${escapeHtml(order.customer_name || "-")}</div>
       <div class="order-meta">${escapeHtml(order.customer_phone || "-")}</div>
-    `
-
-    const middle = document.createElement("div")
-    middle.innerHTML = `
       <div class="order-type"><strong>${formatFulfillmentType(order.fulfillment_type)}</strong></div>
-      <div class="order-type">${escapeHtml(formatDateTime(getOrderTimeValue(order)))}</div>
+      <div class="order-time">${escapeHtml(formatDateTime(getOrderTimeValue(order)))}</div>
     `
 
-    const right = document.createElement("div")
-    right.className = "order-right"
+    const controls = document.createElement("div")
+    controls.className = "order-controls"
 
     const pill = document.createElement("span")
     pill.className = `pill ${completed ? "pill--done" : "pill--open"}`
@@ -243,12 +244,40 @@ const renderOrders = () => {
       void updateCompletion(order, !completed)
     })
 
-    right.appendChild(pill)
-    right.appendChild(toggleBtn)
+    controls.appendChild(pill)
+    controls.appendChild(toggleBtn)
+    left.appendChild(controls)
 
-    row.appendChild(left)
-    row.appendChild(middle)
-    row.appendChild(right)
+    const itemsCol = document.createElement("section")
+    itemsCol.className = "order-items"
+
+    if (items.length) {
+      for (const item of items) {
+        const itemRow = document.createElement("div")
+        itemRow.className = "order-item-row"
+
+        const name = document.createElement("span")
+        name.className = "order-item-name"
+        name.textContent = String(item?.item_name || "Item")
+
+        const qty = document.createElement("span")
+        qty.className = "order-item-qty"
+        qty.textContent = `x${Number(item?.qty || 0)}`
+
+        itemRow.appendChild(name)
+        itemRow.appendChild(qty)
+        itemsCol.appendChild(itemRow)
+      }
+    } else {
+      const emptyItem = document.createElement("div")
+      emptyItem.className = "order-item-row"
+      emptyItem.innerHTML = `<span class="order-item-name">${escapeHtml("No items")}</span><span class="order-item-qty">-</span>`
+      itemsCol.appendChild(emptyItem)
+    }
+
+    cardInner.appendChild(left)
+    cardInner.appendChild(itemsCol)
+    row.appendChild(cardInner)
 
     row.addEventListener("click", () => {
       selectedOrderId = idKey
