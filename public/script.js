@@ -27,6 +27,53 @@ const REGULAR_ORDER = ["Beef & Cheese", "Chicken & Cheese", "3 Cheese", "Pork & 
 
 const normalizeName = (value) => String(value || "").trim().toLowerCase();
 const normalizeCategory = (value) => String(value || "").trim().toLowerCase();
+const toFiniteNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const parseInventoryCount = (inventory) => {
+  const direct = toFiniteNumber(inventory);
+  if (direct !== null) return direct;
+
+  if (!inventory || typeof inventory !== "object") return null;
+  if (Array.isArray(inventory)) {
+    const total = inventory.reduce((sum, entry) => {
+      const qty = parseInventoryCount(entry);
+      return sum + (qty === null ? 0 : qty);
+    }, 0);
+    return total;
+  }
+
+  const objectQty =
+    toFiniteNumber(inventory.qty) ??
+    toFiniteNumber(inventory.quantity) ??
+    toFiniteNumber(inventory.count) ??
+    toFiniteNumber(inventory.stock) ??
+    toFiniteNumber(inventory.in_stock);
+  if (objectQty !== null) return objectQty;
+
+  const values = Object.values(inventory);
+  if (values.length === 0) return null;
+  const nestedTotal = values.reduce((sum, entry) => {
+    const qty = parseInventoryCount(entry);
+    return sum + (qty === null ? 0 : qty);
+  }, 0);
+  return nestedTotal;
+};
+
+const isMenuItemActive = (row) => {
+  if (typeof row?.is_active === "boolean") return row.is_active;
+  return true;
+};
+
+const isMenuItemInStock = (row) => {
+  if (typeof row?.in_stock === "boolean") return row.in_stock;
+  if (typeof row?.available === "boolean") return row.available;
+  const inventoryCount = parseInventoryCount(row?.inventory);
+  if (inventoryCount !== null) return inventoryCount > 0;
+  return true;
+};
 
 const formatMoney = (amount) => {
   const n = Number(amount);
@@ -72,7 +119,7 @@ const normalizeMenuItem = (row) => ({
   name: row.name,
   category: row.category,
   price: Number(row.price_cents || 0) / 100,
-  inStock: Boolean(row.in_stock),
+  inStock: isMenuItemInStock(row),
   note: row.badge || "",
   sortOrder: row.sort_order,
 });
@@ -125,7 +172,7 @@ const fetchSettingsAndMenu = async () => {
     appSettings = normalizeSettings(settingsData);
     menuItems = Array.isArray(menuRows)
       ? menuRows
-          .filter((row) => row?.is_active === true && row?.in_stock === true)
+          .filter(isMenuItemActive)
           .map(normalizeMenuItem)
       : [];
     itemById = buildItemLookup(menuItems);
@@ -261,7 +308,10 @@ const clearCart = () => {
 const getQty = (cartState, id) => cartState[id] || 0;
 
 const setQty = (cartState, id, qty) => {
-  if (!itemById[id]) return;
+  const item = itemById[id];
+  if (!item) return;
+  const currentQty = getQty(cartState, id);
+  if (item.inStock === false && qty > currentQty) return;
   if (qty <= 0) {
     delete cartState[id];
     return;
@@ -288,11 +338,14 @@ const renderQtyControlMarkup = (qty, allowAdd) => {
   return `<button class="qty-control__add" type="button" data-action="add">Add</button>`;
 };
 
+const renderOutOfStockControlMarkup = () =>
+  '<button class="qty-control__add" type="button" disabled aria-disabled="true">Out of stock</button>';
+
 const renderMenuItemMarkup = (item, cartState) => {
   const noteMarkup = item.note ? `<small class="${getNoteClass(item.note)}">${item.note}</small>` : "";
   const qty = getQty(cartState, item.id);
-  const soldOutBadge = item.inStock ? "" : '<span class="menu-item__soldout-badge">Sold out</span>';
-  const qtyControlMarkup = item.inStock ? renderQtyControlMarkup(qty, true) : "";
+  const soldOutBadge = item.inStock ? "" : '<span class="menu-item__soldout-badge">Out of stock</span>';
+  const qtyControlMarkup = item.inStock ? renderQtyControlMarkup(qty, true) : renderOutOfStockControlMarkup();
   return `
     <li class="menu-item${item.inStock ? "" : " menu-item--soldout"}" data-id="${item.id}">
       <span class="menu-item__left">
@@ -1767,7 +1820,7 @@ document.addEventListener("click", async (event) => {
   const action = actionEl.dataset.action;
   const item = itemById[id];
   if ((action === "add" || action === "increase") && item && item.inStock === false) {
-    alert("This item is currently sold out.");
+    alert("This item is currently out of stock.");
     return;
   }
   if (action === "add") {

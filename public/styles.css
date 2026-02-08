@@ -994,6 +994,11 @@ p {
   border-radius: 999px;
   cursor: pointer;
 }
+.qty-control__add[disabled],
+.qty-control__btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
 .qty-control__btn {
   width: 28px;
   height: 28px;

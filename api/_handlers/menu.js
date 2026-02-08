@@ -15,7 +15,6 @@ export default async function handler(req, res) {
       .from("menu_items")
       .select("id,name,category,price_cents,badge,in_stock,is_active,sort_order")
       .eq("is_active", true)
-      .eq("in_stock", true)
       .order("category", { ascending: true })
       .order("sort_order", { ascending: true });
 
