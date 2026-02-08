@@ -774,40 +774,52 @@ a {
 }
 
 .pay-field {
-  height: 48px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 50px;
+  min-height: 50px;
+  max-height: 50px;
   border: 1px solid #d6d6d6;
   border-radius: 6px;
   background: #fff;
   padding: 10px 12px;
   margin-bottom: 14px;
-  box-sizing: border-box;
 }
 
 .pay-field--iframe {
-  padding: 0;
   display: flex;
   align-items: center;
+  padding: 0 12px;
   overflow: hidden;
+  min-height: 50px;
+  max-height: 50px;
 }
 
 .pay-field--iframe iframe {
   width: 100% !important;
-  min-height: 46px !important;
   height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
   border: 0 !important;
   display: block !important;
-}
-
-#clover-card-number.pay-field--iframe,
-#clover-card-number iframe {
-  min-height: 46px !important;
-  height: 100% !important;
+  flex: 1 1 auto !important;
 }
 
 #clover-card-number,
 #clover-expiry,
 #clover-cvv {
   box-sizing: border-box;
+  height: 50px !important;
+  min-height: 50px !important;
+  max-height: 50px !important;
+}
+
+#clover-card-number iframe,
+#clover-expiry iframe,
+#clover-cvv iframe {
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
 }
 
 .pay-field--input {
