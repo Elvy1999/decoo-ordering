@@ -128,12 +128,20 @@ const formatMoney = (cents) => {
   return `$${amount.toFixed(2)}`
 }
 
-const closeModal = () => {
+const returnToSectionsView = () => {
+  const wasViewingSection = activeCategoryIndex >= 0
+  activeCategoryIndex = -1
+  if (modalTitleEl) modalTitleEl.textContent = ""
+  if (modalBodyEl) modalBodyEl.innerHTML = ""
   if (!modalEl) return
   modalEl.classList.remove("is-open", "modal--scrollable", "modal--scroll-end")
   modalEl.setAttribute("aria-hidden", "true")
   document.body.style.overflow = ""
-  activeCategoryIndex = -1
+  if (wasViewingSection) renderCategories()
+}
+
+const closeModal = () => {
+  returnToSectionsView()
 }
 
 const updateModalScrollIndicator = () => {
