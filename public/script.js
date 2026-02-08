@@ -1345,6 +1345,7 @@ const initCloverPayment = () => {
         input: {
           fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
           fontSize: "16px",
+          lineHeight: "18px",
           color: "#111",
         },
         "::placeholder": {
@@ -1367,9 +1368,9 @@ const initCloverPayment = () => {
             base: {
               color: "#111",
               fontSize: "16px",
-              lineHeight: "20px",
+              lineHeight: "18px",
               fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-              padding: "10px",
+              padding: "8px",
             },
             placeholder: {
               color: "#aaa",
