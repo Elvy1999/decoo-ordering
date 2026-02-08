@@ -18,15 +18,27 @@ import { ok, fail, methodNotAllowed } from "./_handlers/shared.js";
 
 function getPath(req) {
   const route = req.query?.route;
-  if (Array.isArray(route)) return "/" + route.join("/");
-  if (typeof route === "string" && route.length) return "/" + route;
+  if (Array.isArray(route) && route.length) {
+    return "/" + route.filter(Boolean).join("/");
+  }
+  if (typeof route === "string" && route.trim()) {
+    return "/" + route.replace(/^\/+/, "");
+  }
 
-  // fallback for production when route param is missing
-  const url = String(req.url || "");
-  const pathOnly = url.split("?")[0] || "/";
-  if (pathOnly === "/api" || pathOnly === "/api/") return "/";
-  if (pathOnly.startsWith("/api/")) return pathOnly.slice(4); // "/version", "/staff/orders", etc.
-  return pathOnly; // last resort
+  let pathname = "/";
+  try {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    pathname = url.pathname;
+  } catch {
+    pathname = "/";
+  }
+
+  pathname = pathname.replace(/\/{2,}/g, "/");
+
+  if (pathname === "/api" || pathname === "/api/") return "/";
+  if (pathname.startsWith("/api/")) return pathname.slice(4);
+
+  return pathname;
 }
 
 export default async function handler(req, res) {
