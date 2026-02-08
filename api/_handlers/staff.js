@@ -4,11 +4,34 @@ import handleStaffInventorySections from "./staff/inventorySections.js";
 import handleStaffInventoryToggle from "./staff/inventoryToggle.js";
 import { ok, fail } from "./shared.js";
 
-function normalizePath(path) {
-  let normalized = String(path || "").replace(/\/+$/, "");
-  if (!normalized) normalized = "/";
-  if (!normalized.startsWith("/")) normalized = `/${normalized}`;
-  return normalized;
+function normalizePath(staffPath) {
+  let p = String(staffPath || "").trim();
+
+  // Remove query string if it somehow gets included
+  p = p.split("?")[0] || "";
+
+  // Collapse multiple slashes and trim trailing slashes
+  p = p.replace(/\/{2,}/g, "/").replace(/\/+$/, "");
+
+  if (!p) p = "/";
+
+  // Ensure leading slash
+  if (!p.startsWith("/")) p = "/" + p;
+
+  // If it ever comes in as /api/staff/..., strip /api once
+  if (p === "/api" || p === "/api/") p = "/";
+  else if (p.startsWith("/api/")) p = p.slice(4);
+
+  // Ensure it is rooted at /staff
+  // Accept: "/staff/..." OR "/orders" OR "/_ping" OR "/inventory/..."
+  if (p === "/staff") return "/staff";
+  if (!p.startsWith("/staff/")) {
+    // If path already starts with /staffSomething (rare), leave it
+    // Otherwise prefix with /staff
+    p = "/staff" + (p === "/" ? "" : p);
+  }
+
+  return p;
 }
 
 export default async function handler(req, res) {
