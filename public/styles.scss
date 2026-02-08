@@ -726,6 +726,142 @@ a {
   gap: $space-2;
 }
 
+.payment {
+  margin-top: $space-3;
+  display: grid;
+  gap: 14px;
+}
+
+.payment__title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.payment__frame {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 0;
+}
+
+.pay-form {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.1);
+}
+
+.pay-row--card {
+  width: 100%;
+}
+
+.pay-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.pay-col {
+  min-width: 0;
+}
+
+.pay-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+  margin: 0 0 6px;
+}
+
+.pay-field {
+  height: 48px;
+  border: 1px solid #d6d6d6;
+  border-radius: 6px;
+  background: #fff;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+}
+
+.pay-field--iframe {
+  padding: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.pay-field--iframe iframe {
+  width: 100% !important;
+  min-height: 46px !important;
+  height: 100% !important;
+  border: 0 !important;
+  display: block !important;
+}
+
+#clover-card-number.pay-field--iframe,
+#clover-card-number iframe {
+  min-height: 46px !important;
+  height: 100% !important;
+}
+
+#clover-card-number,
+#clover-expiry,
+#clover-cvv {
+  box-sizing: border-box;
+}
+
+.pay-field--input {
+  width: 100%;
+  font-size: 16px;
+  outline: none;
+}
+
+.pay-field--input:focus {
+  border-color: #000;
+  box-shadow: 0 0 0 1px #000;
+}
+
+.pay-field--iframe:focus-within {
+  border-color: #000;
+  box-shadow: 0 0 0 1px #000;
+}
+
+.input-errors {
+  min-height: 1em;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: $color-red-dark;
+}
+
+.payment__pay {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.payment__edit {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.payment__edit.btn--ghost {
+  border-color: rgba(0, 0, 0, 0.2);
+  color: #111111;
+}
+
+.payment__edit.btn--ghost:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+@media (max-width: 520px) {
+  .pay-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pay-col--zip {
+    grid-column: 1 / -1;
+  }
+}
+
 .confirmation-note {
   margin-top: $space-3;
   font-weight: 600;

@@ -12,7 +12,7 @@
       gtag("config", "G-H3W6WLZ2QG");
     </script>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <title>Decoo Restaurant</title>
     <link rel="icon" href="/favicon.png" type="image/png" />
     <script type="application/ld+json">
@@ -369,7 +369,42 @@
 
           <div class="payment" data-payment-section hidden>
             <p class="payment__title">Payment</p>
-            <div class="payment__frame" id="clover-payment-container"></div>
+            <div class="payment__frame" id="clover-payment-container">
+              <div class="pay-form">
+                <div class="pay-row pay-row--card">
+                  <label class="pay-label" for="clover-card-number">Card Number</label>
+                  <div id="clover-card-number" class="pay-field pay-field--iframe"></div>
+                  <div class="input-errors" id="clover-card-number-errors" role="alert"></div>
+                </div>
+
+                <div class="pay-grid">
+                  <div class="pay-col">
+                    <label class="pay-label" for="clover-expiry">Expiry</label>
+                    <div id="clover-expiry" class="pay-field pay-field--iframe"></div>
+                    <div class="input-errors" id="clover-expiry-errors" role="alert"></div>
+                  </div>
+
+                  <div class="pay-col">
+                    <label class="pay-label" for="clover-cvv">CVV</label>
+                    <div id="clover-cvv" class="pay-field pay-field--iframe"></div>
+                    <div class="input-errors" id="clover-cvv-errors" role="alert"></div>
+                  </div>
+
+                  <div class="pay-col pay-col--zip">
+                    <label class="pay-label" for="pay-zip">ZIP</label>
+                    <input
+                      id="pay-zip"
+                      class="pay-field pay-field--input"
+                      type="text"
+                      inputmode="numeric"
+                      autocomplete="postal-code"
+                      placeholder="Zip"
+                      maxlength="10"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="promo" data-promo-section data-promo-context="payment">
               <label class="promo__label" for="promo-code-payment">Promo code</label>
               <div class="promo__row">

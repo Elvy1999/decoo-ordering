@@ -1265,32 +1265,48 @@ const scrollCheckoutModalToBottom = () => {
 
 const buildPaymentFieldsMarkup = () => {
   if (!paymentContainer || paymentContainer.dataset.ready) return;
-  paymentContainer.innerHTML = `
-    <div class="payment__grid">
-      <div class="payment__field">
-        <span class="payment__label">Card Number</span>
-        <div id="clover-card-number" class="clover-field"></div>
-        <div class="input-errors" id="clover-card-number-errors" role="alert"></div>
+  const hasPaymentMounts =
+    paymentContainer.querySelector("#clover-card-number") &&
+    paymentContainer.querySelector("#clover-expiry") &&
+    paymentContainer.querySelector("#clover-cvv");
+  if (!hasPaymentMounts) {
+    paymentContainer.innerHTML = `
+      <div class="pay-form">
+        <div class="pay-row pay-row--card">
+          <label class="pay-label" for="clover-card-number">Card Number</label>
+          <div id="clover-card-number" class="pay-field pay-field--iframe"></div>
+          <div class="input-errors" id="clover-card-number-errors" role="alert"></div>
+        </div>
+
+        <div class="pay-grid">
+          <div class="pay-col">
+            <label class="pay-label" for="clover-expiry">Expiry</label>
+            <div id="clover-expiry" class="pay-field pay-field--iframe"></div>
+            <div class="input-errors" id="clover-expiry-errors" role="alert"></div>
+          </div>
+
+          <div class="pay-col">
+            <label class="pay-label" for="clover-cvv">CVV</label>
+            <div id="clover-cvv" class="pay-field pay-field--iframe"></div>
+            <div class="input-errors" id="clover-cvv-errors" role="alert"></div>
+          </div>
+
+          <div class="pay-col pay-col--zip">
+            <label class="pay-label" for="pay-zip">ZIP</label>
+            <input
+              id="pay-zip"
+              class="pay-field pay-field--input"
+              type="text"
+              inputmode="numeric"
+              autocomplete="postal-code"
+              placeholder="Zip"
+              maxlength="10"
+            />
+          </div>
+        </div>
       </div>
-      <div class="payment__row">
-        <div class="payment__field">
-          <span class="payment__label">Expiry</span>
-          <div id="clover-card-date" class="clover-field"></div>
-          <div class="input-errors" id="clover-card-date-errors" role="alert"></div>
-        </div>
-        <div class="payment__field">
-          <span class="payment__label">CVV</span>
-          <div id="clover-card-cvv" class="clover-field"></div>
-          <div class="input-errors" id="clover-card-cvv-errors" role="alert"></div>
-        </div>
-        <div class="payment__field">
-          <span class="payment__label">ZIP</span>
-          <div id="clover-card-postal-code" class="clover-field"></div>
-          <div class="input-errors" id="clover-card-postal-code-errors" role="alert"></div>
-        </div>
-      </div>
-    </div>
-  `;
+    `;
+  }
   paymentContainer.dataset.ready = "true";
   scrollCheckoutModalToBottom();
 };
@@ -1323,49 +1339,70 @@ const initCloverPayment = () => {
     }
 
     cloverInstance = new window.Clover(config.publicKey);
-    cloverElements = cloverInstance.elements();
 
-    const styleOptions = {
+    const elementConfig = {
       styles: {
-        base: {
-          color: "#111111",
-          fontSize: "14px",
-          lineHeight: "20px",
-          fontFamily: '"Source Sans 3", sans-serif',
-          padding: "10px",
+        input: {
+          fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+          fontSize: "16px",
+          color: "#111",
         },
-        placeholder: {
-          color: "rgba(0, 0, 0, 0.4)",
-        },
-        invalid: {
-          color: "#8e1c1c",
+        "::placeholder": {
+          color: "#aaa",
         },
       },
     };
 
-    const cardNumber = cloverElements.create("CARD_NUMBER", styleOptions);
-    const cardDate = cloverElements.create("CARD_DATE", styleOptions);
-    const cardCvv = cloverElements.create("CARD_CVV", styleOptions);
-    const cardPostal = cloverElements.create("CARD_POSTAL_CODE", styleOptions);
+    let useLegacyCreateStyles = false;
+    try {
+      cloverElements = cloverInstance.elements(elementConfig);
+    } catch (_error) {
+      cloverElements = cloverInstance.elements();
+      useLegacyCreateStyles = true;
+    }
+
+    const legacyStyleOptions = useLegacyCreateStyles
+      ? {
+          styles: {
+            base: {
+              color: "#111",
+              fontSize: "16px",
+              lineHeight: "20px",
+              fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+              padding: "10px",
+            },
+            placeholder: {
+              color: "#aaa",
+            },
+            invalid: {
+              color: "#8e1c1c",
+            },
+          },
+        }
+      : undefined;
+
+    const createField = (fieldType) =>
+      useLegacyCreateStyles ? cloverElements.create(fieldType, legacyStyleOptions) : cloverElements.create(fieldType);
+
+    const cardNumber = createField("CARD_NUMBER");
+    const cardExpiry = createField("CARD_DATE");
+    const cardCvv = createField("CARD_CVV");
 
     cardNumber.mount("#clover-card-number");
-    cardDate.mount("#clover-card-date");
-    cardCvv.mount("#clover-card-cvv");
-    cardPostal.mount("#clover-card-postal-code");
+    cardExpiry.mount("#clover-expiry");
+    cardCvv.mount("#clover-cvv");
 
     cloverFieldRefs = {
       cardNumber,
-      cardDate,
+      cardExpiry,
       cardCvv,
-      cardPostal,
     };
 
     scrollCheckoutModalToBottom();
 
     bindFieldErrors(cardNumber, document.querySelector("#clover-card-number-errors"));
-    bindFieldErrors(cardDate, document.querySelector("#clover-card-date-errors"));
-    bindFieldErrors(cardCvv, document.querySelector("#clover-card-cvv-errors"));
-    bindFieldErrors(cardPostal, document.querySelector("#clover-card-postal-code-errors"));
+    bindFieldErrors(cardExpiry, document.querySelector("#clover-expiry-errors"));
+    bindFieldErrors(cardCvv, document.querySelector("#clover-cvv-errors"));
 
     cloverReady = true;
     setPayNowState(false, "Pay Now");
