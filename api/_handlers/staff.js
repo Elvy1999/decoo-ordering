@@ -58,9 +58,13 @@ export default async function handler(req, res) {
     return handleStaffOrderComplete(req, res);
   }
 
-  if (fullPath === "/staff/inventory/sections") return handleStaffInventorySections(req, res);
+  // inventory sections
+  if (fullPath === "/staff/inventory/sections" || fullPath === "/inventory/sections") {
+    return handleStaffInventorySections(req, res);
+  }
 
-  const staffInventoryToggleMatch = fullPath.match(/^\/staff\/inventory\/([^/]+)\/toggle$/);
+  // inventory toggle
+  const staffInventoryToggleMatch = fullPath.match(/^\/(?:staff\/)?inventory\/([^/]+)\/toggle$/);
   if (staffInventoryToggleMatch) {
     req.query = { ...(req.query || {}), id: staffInventoryToggleMatch[1] };
     return handleStaffInventoryToggle(req, res);
