@@ -17,12 +17,17 @@ import handleStaff from "./_handlers/staff.js";
 import { ok, fail, methodNotAllowed } from "./_handlers/shared.js";
 
 function getPath(req) {
+  const withLeadingSlash = (value) => {
+    const normalized = String(value || "/");
+    return normalized.startsWith("/") ? normalized : `/${normalized}`;
+  };
+
   const route = req.query?.route;
   if (Array.isArray(route) && route.length) {
-    return "/" + route.filter(Boolean).join("/");
+    return withLeadingSlash(route.filter(Boolean).join("/"));
   }
   if (typeof route === "string" && route.trim()) {
-    return "/" + route.replace(/^\/+/, "");
+    return withLeadingSlash(route.replace(/^\/+/, ""));
   }
 
   let pathname = "/";
@@ -34,11 +39,12 @@ function getPath(req) {
   }
 
   pathname = pathname.replace(/\/{2,}/g, "/");
+  pathname = withLeadingSlash(pathname);
 
   if (pathname === "/api" || pathname === "/api/") return "/";
-  if (pathname.startsWith("/api/")) return pathname.slice(4);
+  if (pathname.startsWith("/api/")) return withLeadingSlash(pathname.slice(4));
 
-  return pathname;
+  return withLeadingSlash(pathname);
 }
 
 export default async function handler(req, res) {
