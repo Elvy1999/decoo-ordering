@@ -35,6 +35,21 @@ function normalizePath(staffPath) {
 }
 
 export default async function handler(req, res) {
+  // Ensure staffPath always exists
+  if (!req.staffPath) {
+    try {
+      const u = new URL(req.url, `http://${req.headers.host}`);
+      let p = u.pathname || "";
+
+      // Strip /api prefix once
+      if (p.startsWith("/api/")) p = p.slice(4);
+
+      req.staffPath = p;
+    } catch {
+      req.staffPath = "/staff";
+    }
+  }
+
   const fullPath = normalizePath(req.staffPath);
   const path = fullPath;
   if (path === "/staff/_ping") {
