@@ -19,37 +19,38 @@ import { ok, fail, methodNotAllowed } from "./_handlers/shared.js";
 function getPath(req) {
   const route = req.query?.route;
 
-  // Prefer catch-all param
+  // Preferred: Vercel catch-all param
   if (Array.isArray(route) && route.length) {
-    const p = "/" + route.map(String).filter(Boolean).join("/");
-    return p.startsWith("/") ? p : "/" + p;
-  }
-  if (typeof route === "string" && route.trim()) {
-    const p = "/" + route.replace(/^\/+/, "");
-    return p.startsWith("/") ? p : "/" + p;
+    let p = "/" + route.map(String).filter(Boolean).join("/");
+    p = p.replace(/\/{2,}/g, "/"); // collapse /////
+    p = p.replace(/^\/?/, "/"); // ensure leading /
+    p = p.replace(/^\/api(\/|$)/, "/"); // strip leading /api once if it somehow appears
+    return p === "" ? "/" : p;
   }
 
-  // Fallback: parse URL safely (handles full URL or relative)
+  if (typeof route === "string" && route.trim()) {
+    let p = "/" + route.replace(/^\/+/, "");
+    p = p.replace(/\/{2,}/g, "/");
+    p = p.replace(/^\/api(\/|$)/, "/");
+    return p === "" ? "/" : p;
+  }
+
+  // Fallback: parse URL safely
   let pathname = "/";
   try {
     const u = new URL(req.url, `http://${req.headers.host}`);
     pathname = u.pathname || "/";
   } catch {
-    const raw = String(req.url || "/");
-    pathname = raw.split("?")[0] || "/";
+    pathname = String(req.url || "/").split("?")[0] || "/";
   }
 
-  // Normalize slashes
   pathname = pathname.replace(/\/{2,}/g, "/");
 
-  // Strip /api exactly once (only if leading)
   if (pathname === "/api" || pathname === "/api/") pathname = "/";
   else if (pathname.startsWith("/api/")) pathname = pathname.slice(4);
 
-  // ALWAYS enforce leading slash
   if (!pathname.startsWith("/")) pathname = "/" + pathname;
-
-  return pathname;
+  return pathname === "" ? "/" : pathname;
 }
 
 export default async function handler(req, res) {
