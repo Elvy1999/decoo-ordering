@@ -11,6 +11,7 @@ const categoriesEl = document.getElementById("categories")
 const modalEl = document.getElementById("category-modal")
 const modalTitleEl = document.getElementById("modal-title")
 const modalBodyEl = document.getElementById("modal-body")
+const modalBackBtn = document.getElementById("modal-back")
 const modalCloseBtn = document.getElementById("modal-close")
 const toastEl = document.getElementById("toast")
 
@@ -346,6 +347,7 @@ logoutBtn?.addEventListener("click", () => {
   showToast("Signed out")
 })
 
+modalBackBtn?.addEventListener("click", closeModal)
 modalCloseBtn?.addEventListener("click", closeModal)
 
 modalEl?.addEventListener("click", (event) => {
