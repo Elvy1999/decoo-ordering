@@ -1340,12 +1340,20 @@ const initCloverPayment = () => {
 
     cloverInstance = new window.Clover(config.publicKey);
 
+    const isMobilePaymentViewport = window.matchMedia("(max-width: 520px)").matches;
+    const defaultFieldFontSize = "16px";
+    const defaultFieldLineHeight = "18px";
+    const paymentFieldPadding = "10px 10px 6px";
+    const mobileCardNumberFontSize = isMobilePaymentViewport ? "18px" : defaultFieldFontSize;
+    const mobileCardNumberLineHeight = isMobilePaymentViewport ? "20px" : defaultFieldLineHeight;
+
     const elementConfig = {
       styles: {
         input: {
           fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-          fontSize: "16px",
-          lineHeight: "18px",
+          fontSize: defaultFieldFontSize,
+          lineHeight: defaultFieldLineHeight,
+          padding: paymentFieldPadding,
           color: "#111",
         },
         "::placeholder": {
@@ -1367,10 +1375,10 @@ const initCloverPayment = () => {
           styles: {
             base: {
               color: "#111",
-              fontSize: "16px",
-              lineHeight: "18px",
+              fontSize: defaultFieldFontSize,
+              lineHeight: defaultFieldLineHeight,
               fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-              padding: "8px",
+              padding: paymentFieldPadding,
             },
             placeholder: {
               color: "#aaa",
@@ -1382,16 +1390,45 @@ const initCloverPayment = () => {
         }
       : undefined;
 
-    const createField = (fieldType) =>
-      useLegacyCreateStyles ? cloverElements.create(fieldType, legacyStyleOptions) : cloverElements.create(fieldType);
+    const legacyCardNumberStyleOptions = useLegacyCreateStyles
+      ? {
+          styles: {
+            ...legacyStyleOptions.styles,
+            base: {
+              ...legacyStyleOptions.styles.base,
+              fontSize: mobileCardNumberFontSize,
+              lineHeight: mobileCardNumberLineHeight,
+            },
+          },
+        }
+      : undefined;
 
-    const cardNumber = createField("CARD_NUMBER");
+    const createField = (fieldType, fieldOptions) =>
+      useLegacyCreateStyles
+        ? cloverElements.create(fieldType, fieldOptions || legacyStyleOptions)
+        : cloverElements.create(fieldType);
+
+    const cardNumber = createField("CARD_NUMBER", legacyCardNumberStyleOptions);
     const cardExpiry = createField("CARD_DATE");
     const cardCvv = createField("CARD_CVV");
 
     cardNumber.mount("#clover-card-number");
     cardExpiry.mount("#clover-expiry");
     cardCvv.mount("#clover-cvv");
+
+    if (!useLegacyCreateStyles && isMobilePaymentViewport && typeof cardNumber.update === "function") {
+      try {
+        cardNumber.update({
+          styles: {
+            input: {
+              fontSize: mobileCardNumberFontSize,
+              lineHeight: mobileCardNumberLineHeight,
+              padding: paymentFieldPadding,
+            },
+          },
+        });
+      } catch (_error) {}
+    }
 
     cloverFieldRefs = {
       cardNumber,
