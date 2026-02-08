@@ -338,14 +338,13 @@ const renderQtyControlMarkup = (qty, allowAdd) => {
   return `<button class="qty-control__add" type="button" data-action="add">Add</button>`;
 };
 
-const renderOutOfStockControlMarkup = () =>
-  '<button class="qty-control__add" type="button" disabled aria-disabled="true">Out of stock</button>';
-
 const renderMenuItemMarkup = (item, cartState) => {
   const noteMarkup = item.note ? `<small class="${getNoteClass(item.note)}">${item.note}</small>` : "";
   const qty = getQty(cartState, item.id);
   const soldOutBadge = item.inStock ? "" : '<span class="menu-item__soldout-badge">Out of stock</span>';
-  const qtyControlMarkup = item.inStock ? renderQtyControlMarkup(qty, true) : renderOutOfStockControlMarkup();
+  const qtyControlMarkup = item.inStock
+    ? `<span class="qty-control">${renderQtyControlMarkup(qty, true)}</span>`
+    : "";
   return `
     <li class="menu-item${item.inStock ? "" : " menu-item--soldout"}" data-id="${item.id}">
       <span class="menu-item__left">
@@ -355,7 +354,7 @@ const renderMenuItemMarkup = (item, cartState) => {
       <span class="menu-item__right">
         <span class="menu-item__price">${formatMoney(item.price)}</span>
         ${soldOutBadge}
-        <span class="qty-control">${qtyControlMarkup}</span>
+        ${qtyControlMarkup}
       </span>
     </li>
   `;
