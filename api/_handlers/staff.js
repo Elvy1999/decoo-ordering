@@ -4,56 +4,43 @@ import handleStaffInventorySections from "./staff/inventorySections.js";
 import handleStaffInventoryToggle from "./staff/inventoryToggle.js";
 import { ok, fail } from "./shared.js";
 
-function normalizePath(staffPath) {
-  let p = String(staffPath || "").trim();
+function normalizePath(path) {
+  let normalized = String(path || "").replace(/\/+$/, "");
+  if (!normalized) normalized = "/";
+  if (!normalized.startsWith("/")) normalized = `/${normalized}`;
+  return normalized;
+}
 
-  // Remove query string if it somehow gets included
-  p = p.split("?")[0] || "";
+function staffPathFromUrl(req) {
+  try {
+    const u = new URL(req.url, `http://${req.headers.host}`);
+    let p = u.pathname || "/";
 
-  // Collapse multiple slashes and trim trailing slashes
-  p = p.replace(/\/{2,}/g, "/").replace(/\/+$/, "");
+    // strip "/api" once
+    if (p === "/api" || p === "/api/") p = "/";
+    else if (p.startsWith("/api/")) p = p.slice(4);
 
-  if (!p) p = "/";
-
-  // Ensure leading slash
-  if (!p.startsWith("/")) p = "/" + p;
-
-  // If it ever comes in as /api/staff/..., strip /api once
-  if (p === "/api" || p === "/api/") p = "/";
-  else if (p.startsWith("/api/")) p = p.slice(4);
-
-  // Ensure it is rooted at /staff
-  // Accept: "/staff/..." OR "/orders" OR "/_ping" OR "/inventory/..."
-  if (p === "/staff") return "/staff";
-  if (!p.startsWith("/staff/")) {
-    // If path already starts with /staffSomething (rare), leave it
-    // Otherwise prefix with /staff
-    p = "/staff" + (p === "/" ? "" : p);
+    return p; // should now be "/staff/_ping", "/staff/orders", etc.
+  } catch {
+    return "/";
   }
-
-  return p;
 }
 
 export default async function handler(req, res) {
-  // Ensure staffPath always exists
-  if (!req.staffPath) {
-    try {
-      const u = new URL(req.url, `http://${req.headers.host}`);
-      let p = u.pathname || "";
+  // Prefer req.staffPath if set, otherwise derive from URL
+  const derived = staffPathFromUrl(req);
+  const fullPath = normalizePath(req.staffPath || derived);
 
-      // Strip /api prefix once
-      if (p.startsWith("/api/")) p = p.slice(4);
-
-      req.staffPath = p;
-    } catch {
-      req.staffPath = "/staff";
-    }
-  }
-
-  const fullPath = normalizePath(req.staffPath);
-  const path = fullPath;
-  if (path === "/staff/_ping") {
-    return ok(res, { hit: "staff-handler", path, staffPath: req.staffPath, route: req.query?.route || null });
+  // Make ping work even if staffPath is wrong/missing
+  if (derived === "/staff/_ping" || fullPath === "/staff/_ping") {
+    return ok(res, {
+      hit: "staff-handler",
+      url: req.url || null,
+      staffPath: req.staffPath || null,
+      derived,
+      fullPath,
+      route: req.query?.route ?? null,
+    });
   }
 
   const method = String(req.method || "GET").toUpperCase();
