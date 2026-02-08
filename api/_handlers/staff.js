@@ -27,9 +27,13 @@ function staffPathFromUrl(req) {
 }
 
 export default async function handler(req, res) {
-  // Prefer req.staffPath if set, otherwise derive from URL
   const derived = staffPathFromUrl(req);
-  const fullPath = normalizePath(req.staffPath || derived);
+  const rawStaffPath = normalizePath(req.staffPath);
+
+  // If staffPath is missing or too generic, use derived path from URL
+  const useDerived = !req.staffPath || rawStaffPath === "/staff" || rawStaffPath === "/";
+
+  const fullPath = normalizePath(useDerived ? derived : rawStaffPath);
 
   // Make ping work even if staffPath is wrong/missing
   if (derived === "/staff/_ping" || fullPath === "/staff/_ping") {
