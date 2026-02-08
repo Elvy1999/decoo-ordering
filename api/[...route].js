@@ -17,34 +17,39 @@ import handleStaff from "./_handlers/staff.js";
 import { ok, fail, methodNotAllowed } from "./_handlers/shared.js";
 
 function getPath(req) {
-  const withLeadingSlash = (value) => {
-    const normalized = String(value || "/");
-    return normalized.startsWith("/") ? normalized : `/${normalized}`;
-  };
-
   const route = req.query?.route;
+
+  // Prefer catch-all param
   if (Array.isArray(route) && route.length) {
-    return withLeadingSlash(route.filter(Boolean).join("/"));
+    const p = "/" + route.map(String).filter(Boolean).join("/");
+    return p.startsWith("/") ? p : "/" + p;
   }
   if (typeof route === "string" && route.trim()) {
-    return withLeadingSlash(route.replace(/^\/+/, ""));
+    const p = "/" + route.replace(/^\/+/, "");
+    return p.startsWith("/") ? p : "/" + p;
   }
 
+  // Fallback: parse URL safely (handles full URL or relative)
   let pathname = "/";
   try {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    pathname = url.pathname;
+    const u = new URL(req.url, `http://${req.headers.host}`);
+    pathname = u.pathname || "/";
   } catch {
-    pathname = "/";
+    const raw = String(req.url || "/");
+    pathname = raw.split("?")[0] || "/";
   }
 
+  // Normalize slashes
   pathname = pathname.replace(/\/{2,}/g, "/");
-  pathname = withLeadingSlash(pathname);
 
-  if (pathname === "/api" || pathname === "/api/") return "/";
-  if (pathname.startsWith("/api/")) return withLeadingSlash(pathname.slice(4));
+  // Strip /api exactly once (only if leading)
+  if (pathname === "/api" || pathname === "/api/") pathname = "/";
+  else if (pathname.startsWith("/api/")) pathname = pathname.slice(4);
 
-  return withLeadingSlash(pathname);
+  // ALWAYS enforce leading slash
+  if (!pathname.startsWith("/")) pathname = "/" + pathname;
+
+  return pathname;
 }
 
 export default async function handler(req, res) {
