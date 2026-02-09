@@ -1715,12 +1715,37 @@ document.addEventListener("click", async (event) => {
         throw new Error("Payment is unavailable.");
       }
 
-      console.log("[payment] creating clover token");
-      const tokenResult = await cloverInstance.createToken();
-      console.log("[payment] clover token created", {
-        tokenSnippet: tokenResult?.token ? String(tokenResult.token).slice(0, 8) + "..." : null,
-        errors: tokenResult?.errors || tokenResult?.error ? true : false,
-      });
+      const zip = (document.getElementById("pay-zip")?.value || "").trim();
+      console.log("[payment] before createToken", { hasClover: !!cloverInstance, zipLen: zip.length });
+
+      if (!zip) {
+        setPaymentError("Please enter ZIP code.");
+        return;
+      }
+
+      const withTimeout = (promise, ms, label) =>
+        Promise.race([
+          promise,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(label + " timed out after " + ms + "ms")), ms),
+          ),
+        ]);
+
+      let tokenResult;
+      try {
+        // NOTE: pass ZIP if supported by Clover tokenization
+        tokenResult = await withTimeout(
+          cloverInstance.createToken({ postalCode: zip }),
+          12000,
+          "createToken",
+        );
+      } catch (e) {
+        console.error("[payment] createToken failed/hung", e);
+        setPaymentError("Card verification is not responding. Try again, or try a different browser/device.");
+        return;
+      }
+
+      console.log("[payment] after createToken", tokenResult);
       const sourceId = tokenResult?.token;
       const tokenError =
         tokenResult?.errors?.[0]?.message || tokenResult?.error?.message || tokenResult?.error || "";
@@ -1740,6 +1765,7 @@ document.addEventListener("click", async (event) => {
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       const paymentEndpoint = "/api/payments/iframe/charge";
+      console.log("[payment] about to call backend", { orderId: pendingOrder.order_id });
       console.log("[payment] request ->", {
         endpoint: paymentEndpoint,
         orderId: pendingOrder.order_id,
@@ -1807,7 +1833,7 @@ document.addEventListener("click", async (event) => {
       setPaymentError("Payment could not be processed. Please try again.");
     } finally {
       payNow.removeAttribute("aria-busy");
-      setPayNowState(!cloverReady, "Pay Now");
+      setPayNowState(false, "Pay Now");
     }
     return;
   }
