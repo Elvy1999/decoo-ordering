@@ -841,7 +841,8 @@ a {
 
 .payment #clover-card-number,
 .payment #clover-expiry,
-.payment #clover-cvv {
+.payment #clover-cvv,
+.payment #clover-postal-code {
   box-sizing: border-box;
   height: 44px !important;
   min-height: 44px !important;
@@ -850,7 +851,8 @@ a {
 
 .payment #clover-card-number iframe,
 .payment #clover-expiry iframe,
-.payment #clover-cvv iframe {
+.payment #clover-cvv iframe,
+.payment #clover-postal-code iframe {
   height: 100% !important;
   min-height: 100% !important;
   max-height: 100% !important;
@@ -901,11 +903,46 @@ a {
 
 @media (max-width: 520px) {
   .pay-grid {
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
   }
 
-  .pay-col--zip {
-    grid-column: 1 / -1;
+  .pay-col {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .payment .pay-field {
+    padding: 8px 8px 6px;
+    height: 42px;
+    min-height: 42px;
+    max-height: 42px;
+  }
+
+  .payment .pay-field--iframe {
+    padding: 0 8px;
+    height: 42px;
+    min-height: 42px;
+    max-height: 42px;
+  }
+
+  .payment #clover-card-number,
+  .payment #clover-expiry,
+  .payment #clover-cvv,
+  .payment #clover-postal-code {
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+  }
+
+  .payment #clover-card-number iframe,
+  .payment #clover-expiry iframe,
+  .payment #clover-cvv iframe,
+  .payment #clover-postal-code iframe {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
   }
 }
 
