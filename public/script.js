@@ -1739,13 +1739,15 @@ document.addEventListener("click", async (event) => {
       const timeoutMs = 25000; // 25s
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-      console.log("[payment] request -> /api/payments/iframe/charge", {
+      const paymentEndpoint = "/api/payments/iframe/charge";
+      console.log("[payment] request ->", {
+        endpoint: paymentEndpoint,
         orderId: pendingOrder.order_id,
         sourceId: sourceId ? sourceId.slice(0, 8) + "..." : null,
       });
       let response;
       try {
-        response = await fetch("/api/payments/iframe/charge", {
+        response = await fetch(paymentEndpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1753,8 +1755,7 @@ document.addEventListener("click", async (event) => {
           body: JSON.stringify({
             order_id: String(pendingOrder.order_id),
             source_id: sourceId,
-            orderId: String(pendingOrder.order_id),
-            sourceId: sourceId,
+            total_cents: pendingOrder.total_cents,
           }),
           signal: controller.signal,
         });
@@ -1771,11 +1772,18 @@ document.addEventListener("click", async (event) => {
 
       clearTimeout(timeoutId);
       const data = await response.json().catch(() => null);
+      const bodySnippet = data ? JSON.stringify(data).slice(0, 300) : null;
       console.log("[payment] response", {
         status: response.status,
-        bodySnippet: data ? JSON.stringify(data).slice(0, 200) : null,
+        bodySnippet,
       });
-      if (!response.ok || !data || !data.ok) {
+      if (!response.ok) {
+        console.error("[payment] non-200 response", { status: response.status, bodySnippet });
+        const message = getErrorMessage(data, "Payment was declined. Please try another card.");
+        setPaymentError(`${message} (status ${response.status})`);
+        return;
+      }
+      if (!data || !data.ok) {
         const message = getErrorMessage(data, "Payment was declined. Please try another card.");
         setPaymentError(message);
         return;

@@ -153,6 +153,7 @@ const paymentRequired = (res, details) => {
 };
 
 export default async function handler(req, res) {
+  console.log("[payment] CHARGE ENDPOINT HIT");
   console.log("[payment] handler START", { path: req.url || req.path || null, method: req.method || null });
   if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
   if (!req.body || typeof req.body !== "object") {
