@@ -1200,7 +1200,7 @@ const validateCheckoutDetails = () => {
 };
 
 const renderConfirmation = (orderId, cartSnapshot, totals, warnings = [], orderTypeOverride = "") => {
-  if (confirmationOrderId) confirmationOrderId.textContent = orderId;
+  if (confirmationOrderId) confirmationOrderId.textContent = `#${orderId}`;
   renderCheckoutSummary(confirmationSummary, cartSnapshot);
   updateTotalsBlock(confirmationTotals, totals);
   if (confirmationNote) {
@@ -1809,7 +1809,7 @@ document.addEventListener("click", async (event) => {
 
       const warnings = Array.isArray(data.warnings) ? data.warnings : [];
       renderConfirmation(
-        pendingOrder.order_code,
+        String(pendingOrder.order_id),
         pendingOrder.cartSnapshot,
         pendingOrder.totals,
         warnings,
@@ -1910,7 +1910,7 @@ document.addEventListener("click", async (event) => {
 
       pendingOrder = {
         order_id: data.order_id,
-        order_code: data.order_code || `DCO-${Math.floor(10000 + Math.random() * 90000)}`,
+        order_code: data.order_code || "",
         total_cents: data.total_cents,
         cartSnapshot,
         totals,

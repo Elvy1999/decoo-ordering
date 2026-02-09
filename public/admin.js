@@ -173,7 +173,10 @@ const adminFetch = async (url, options = {}) => apiFetch(url, options);
 
 const dollarsToCents = (d) => Math.round(Number(d || 0) * 100);
 const centsToDollars = (c) => (Number(c || 0) / 100).toFixed(2);
-const normalizeCode = (value) => String(value || "").trim().toUpperCase();
+const normalizeCode = (value) =>
+  String(value || "")
+    .trim()
+    .toUpperCase();
 const escapeHtml = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (char) => {
     if (char === "&") return "&amp;";
@@ -471,27 +474,19 @@ const startRealtime = () => {
 
   realtimeChannel = client
     .channel(REALTIME_CHANNEL)
-    .on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "orders" },
-      (payload) => {
-        scheduleOrdersRefresh();
-        if (payload?.new?.status === "new") {
-          newOrderSound.currentTime = 0;
-          newOrderSound.play().catch(() => {
-            console.log("Audio bloqueado hasta que el usuario interactue");
-          });
-        }
-        showToast("Nuevo pedido recibido.");
-      },
-    )
-    .on(
-      "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "orders" },
-      () => {
-        scheduleOrdersRefresh();
-      },
-    )
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, (payload) => {
+      scheduleOrdersRefresh();
+      if (payload?.new?.status === "new") {
+        newOrderSound.currentTime = 0;
+        newOrderSound.play().catch(() => {
+          console.log("Audio bloqueado hasta que el usuario interactue");
+        });
+      }
+      showToast("Nuevo pedido recibido.");
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, () => {
+      scheduleOrdersRefresh();
+    })
     .subscribe();
 };
 
@@ -545,7 +540,7 @@ const renderOrders = () => {
     const row = document.createElement("tr");
     row.dataset.id = order.id;
     row.innerHTML = `
-      <td>${order.order_code || order.id}</td>
+      <td>#${order.id}</td>
       <td>${order.customer_name || "-"}</td>
       <td>${order.customer_phone || "-"}</td>
       <td>${formatFulfillmentType(order.fulfillment_type)}</td>
@@ -571,19 +566,37 @@ const loadOrderDetail = async (id) => {
   }
 };
 
+const normalize = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+const isDrinkCategory = (category) => {
+  const c = normalize(category);
+  return c === "juices" || c === "sodas" || c === "soda" || c === "drinks";
+};
+const isDrinkByName = (name) => {
+  const n = normalize(name);
+  return n.includes("juice") || n.includes("soda") || n.includes("coke") || n.includes("sprite");
+};
+const sortItemsWithDrinksLast = (list = []) =>
+  [...list].sort((a, b) => {
+    const aDrink = isDrinkCategory(a?.category) || (!a?.category && isDrinkByName(a?.name || a?.item_name));
+    const bDrink = isDrinkCategory(b?.category) || (!b?.category && isDrinkByName(b?.name || b?.item_name));
+    if (aDrink === bDrink) return 0;
+    return aDrink ? 1 : -1;
+  });
+
 const renderOrderDetail = (order, items) => {
   if (!orderDetail) return;
   const hasStatus = typeof order.status !== "undefined";
   const hasCloverOrderId = Boolean(order.clover_order_id);
-  const itemsList = items
-    .map(
-      (item) =>
-        `<li>${item.qty}x ${item.item_name} — ${formatMoney(item.line_total_cents)}</li>`,
-    )
+  const sortedItems = sortItemsWithDrinksLast(Array.isArray(items) ? items : []);
+  const itemsList = sortedItems
+    .map((item) => `<li>${item.qty}x ${item.item_name} — ${formatMoney(item.line_total_cents)}</li>`)
     .join("");
 
   orderDetail.innerHTML = `
-    <h3>Pedido ${order.order_code || order.id}</h3>
+    <h3>Pedido #${order.id}</h3>
     <div class="grid grid--two">
       <div>
         <strong>Cliente:</strong> ${order.customer_name || "-"}<br />
@@ -612,11 +625,15 @@ const renderOrderDetail = (order, items) => {
       Sin ID de orden Clover (no se envio al POS).
     </div>`
     }
-    ${hasStatus ? `<div class="field" style="margin-top:12px;">
+    ${
+      hasStatus
+        ? `<div class="field" style="margin-top:12px;">
       <label for="order-status">Estado</label>
       <input id="order-status" type="text" value="${order.status ?? ""}" />
       <button class="btn btn--small" id="order-status-save" type="button">Actualizar estado</button>
-    </div>` : ""}
+    </div>`
+        : ""
+    }
     <div class="order-detail__items">
       <h4>Articulos</h4>
       <ul>${itemsList || "<li>No se encontraron articulos.</li>"}</ul>

@@ -18,9 +18,12 @@ const toastEl = document.getElementById("toast");
 const supabaseLib = window.supabase;
 const createClient = supabaseLib?.createClient;
 
+const SOUND_START_SEC = 46;
+const SOUND_DURATION_SEC = 8;
 const orderSound = new Audio("/order_sound.mp3");
 orderSound.preload = "auto";
 orderSound.volume = 0.7;
+let soundStopTimer = null;
 
 const enableSoundBtn = document.getElementById("enable-sound");
 let audioEnabled = sessionStorage.getItem("audioEnabled") === "1";
@@ -197,6 +200,26 @@ const formatFulfillmentType = (value) => {
 };
 
 const isPaidOrder = (order) => order?.payment_status === "paid" || Boolean(order?.paid_at);
+const normalize = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+const isDrinkCategory = (category) => {
+  const c = normalize(category);
+  return c === "juices" || c === "sodas" || c === "soda" || c === "drinks";
+};
+const isDrinkByName = (name) => {
+  const n = normalize(name);
+  return n.includes("juice") || n.includes("soda") || n.includes("coke") || n.includes("sprite");
+};
+const sortItemsWithDrinksLast = (items = []) =>
+  [...items].sort((a, b) => {
+    const aDrink = isDrinkCategory(a?.category) || (!a?.category && isDrinkByName(a?.name || a?.item_name));
+    const bDrink = isDrinkCategory(b?.category) || (!b?.category && isDrinkByName(b?.name || b?.item_name));
+    if (aDrink === bDrink) return 0;
+    return aDrink ? 1 : -1;
+  });
+
 const isCompletedOrder = (order) => String(order?.status || "").toLowerCase() === "completed";
 const getOrderTimeValue = (order) => order?.paid_at || order?.created_at || null;
 
@@ -218,6 +241,7 @@ const renderOrders = () => {
     const idKey = String(order.id);
     const completed = isCompletedOrder(order);
     const items = Array.isArray(order.items) ? order.items : [];
+    const sortedItems = sortItemsWithDrinksLast(items);
     const row = document.createElement("article");
     row.className = `order-row${idKey === String(selectedOrderId) ? " is-selected" : ""}`;
 
@@ -227,7 +251,7 @@ const renderOrders = () => {
     const left = document.createElement("section");
     left.className = "order-left";
     left.innerHTML = `
-      <div class="order-code">${escapeHtml(order.order_code || order.id)}</div>
+      <div class="order-code">${escapeHtml(`#${order.id}`)}</div>
       <div class="order-meta">${escapeHtml(order.customer_name || "-")}</div>
       <div class="order-meta">${escapeHtml(order.customer_phone || "-")}</div>
       <div class="order-type"><strong>${formatFulfillmentType(order.fulfillment_type)}</strong></div>
@@ -258,8 +282,8 @@ const renderOrders = () => {
     const itemsCol = document.createElement("section");
     itemsCol.className = "order-items";
 
-    if (items.length) {
-      for (const item of items) {
+    if (sortedItems.length) {
+      for (const item of sortedItems) {
         const itemRow = document.createElement("div");
         itemRow.className = "order-item-row";
 
@@ -309,9 +333,10 @@ const renderDetails = () => {
   }
 
   const items = Array.isArray(order.items) ? order.items : [];
+  const sortedItems = sortItemsWithDrinksLast(items);
   const itemsMarkup =
-    items.length > 0
-      ? items
+    sortedItems.length > 0
+      ? sortedItems
           .map((item) => {
             const qty = Number(item?.qty || 0);
             const lineTotal = Number.isFinite(Number(item?.line_total_cents))
@@ -335,7 +360,7 @@ const renderDetails = () => {
   const discountLabel = discountCents > 0 ? `-${formatMoney(discountCents)}` : formatMoney(discountCents);
 
   detailsPanelEl.innerHTML = `
-    <h3>Order ${escapeHtml(order.order_code || order.id)}</h3>
+    <h3>Order ${escapeHtml(`#${order.id}`)}</h3>
     <p class="helper">Paid time: ${escapeHtml(formatDateTime(getOrderTimeValue(order)))}</p>
 
     <div class="details-block">
@@ -369,50 +394,34 @@ const renderDetails = () => {
   `;
 };
 
+const ensureSoundReady = () =>
+  new Promise((resolve) => {
+    if (orderSound.readyState >= 1) {
+      resolve();
+      return;
+    }
+    orderSound.addEventListener("loadedmetadata", () => resolve(), { once: true });
+  });
+
 const playOrderSound = async () => {
   if (!audioEnabled) {
     showToast("Tap Enable Sound", "error");
     return;
   }
   try {
-    await playSoundThreeTimes();
+    await ensureSoundReady();
+    orderSound.currentTime = SOUND_START_SEC;
+    await orderSound.play();
+
+    clearTimeout(soundStopTimer);
+    soundStopTimer = setTimeout(() => {
+      orderSound.pause();
+      orderSound.currentTime = SOUND_START_SEC;
+    }, SOUND_DURATION_SEC * 1000);
   } catch (e) {
     showToast("Tap Enable Sound", "error");
   }
 };
-
-async function playSoundThreeTimes() {
-  for (let i = 0; i < 3; i++) {
-    try {
-      orderSound.currentTime = 0;
-      await orderSound.play();
-
-      // wait for ended or timeout
-      await new Promise((resolve) => {
-        let resolved = false;
-        const onEnd = () => {
-          if (resolved) return;
-          resolved = true;
-          orderSound.removeEventListener("ended", onEnd);
-          clearTimeout(timeout);
-          resolve();
-        };
-        orderSound.addEventListener("ended", onEnd);
-        const timeout = setTimeout(
-          () => {
-            if (resolved) return;
-            resolved = true;
-            orderSound.removeEventListener("ended", onEnd);
-            resolve();
-          },
-          Math.max(3000, (orderSound.duration || 0) * 1000 + 500),
-        );
-      });
-    } catch (err) {
-      throw err;
-    }
-  }
-}
 
 const applyOrders = (nextOrders) => {
   const paidOrders = (Array.isArray(nextOrders) ? nextOrders : []).filter(isPaidOrder);
@@ -462,12 +471,7 @@ const pollOnce = async ({ silent = false } = {}) => {
 
     if (String(newestTime) > String(stored)) {
       // new order detected
-      try {
-        await playSoundThreeTimes();
-      } catch (err) {
-        // likely blocked; ask user to enable
-        showToast("Tap Enable Sound", "error");
-      }
+      await playOrderSound();
       localStorage.setItem(LAST_SEEN_KEY, String(newestTime));
       showToast("New paid order");
     }
