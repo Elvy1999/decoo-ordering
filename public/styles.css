@@ -934,26 +934,26 @@ p {
   }
 
   .payment .pay-field {
-    padding: 8px 8px 6px;
-    height: 42px;
-    min-height: 42px;
-    max-height: 42px;
+    padding: 7px 8px 6px;
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
   }
 
   .payment .pay-field--iframe {
     padding: 0 8px;
-    height: 42px;
-    min-height: 42px;
-    max-height: 42px;
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
   }
 
   .payment #clover-card-number,
   .payment #clover-expiry,
   .payment #clover-cvv,
   .payment #clover-postal-code {
-    height: 42px !important;
-    min-height: 42px !important;
-    max-height: 42px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
   }
 
   .payment #clover-card-number iframe,
