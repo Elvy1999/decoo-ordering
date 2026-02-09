@@ -1702,7 +1702,9 @@ document.addEventListener("click", async (event) => {
         throw new Error("Payment is unavailable.");
       }
 
+      console.log('[payment] creating clover token');
       const tokenResult = await cloverInstance.createToken();
+      console.log('[payment] clover token created', { tokenSnippet: tokenResult?.token ? String(tokenResult.token).slice(0,8)+'...' : null, errors: tokenResult?.errors || tokenResult?.error ? true : false });
       const sourceId = tokenResult?.token;
       const tokenError =
         tokenResult?.errors?.[0]?.message || tokenResult?.error?.message || tokenResult?.error || "";
@@ -1716,20 +1718,41 @@ document.addEventListener("click", async (event) => {
         return;
       }
 
-      const response = await fetch("/api/payments/iframe/charge", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          order_id: String(pendingOrder.order_id),
-          source_id: sourceId,
-          orderId: String(pendingOrder.order_id),
-          sourceId: sourceId,
-        }),
-      });
+      // Add timeout to payment request to avoid infinite spinner
+      const controller = new AbortController();
+      const timeoutMs = 25000; // 25s
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+      console.log("[payment] request -> /api/payments/iframe/charge", { orderId: pendingOrder.order_id, sourceId: sourceId ? sourceId.slice(0,8) + '...' : null });
+      let response;
+      try {
+        response = await fetch("/api/payments/iframe/charge", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            order_id: String(pendingOrder.order_id),
+            source_id: sourceId,
+            orderId: String(pendingOrder.order_id),
+            sourceId: sourceId,
+          }),
+          signal: controller.signal,
+        });
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.error('[payment] fetch error', err);
+        if (err.name === 'AbortError') {
+          setPaymentError('Payment timed out, please try again.');
+        } else {
+          setPaymentError('Payment could not be processed. Please try again.');
+        }
+        return;
+      }
+
+      clearTimeout(timeoutId);
       const data = await response.json().catch(() => null);
+      console.log('[payment] response', { status: response.status, bodySnippet: data ? JSON.stringify(data).slice(0,200) : null });
       if (!response.ok || !data || !data.ok) {
         const message = getErrorMessage(data, "Payment was declined. Please try another card.");
         setPaymentError(message);
@@ -1750,6 +1773,7 @@ document.addEventListener("click", async (event) => {
       pendingOrder = null;
       resetPaymentUI();
     } catch (error) {
+      console.error('[payment] frontend error', error);
       setPaymentError("Payment could not be processed. Please try again.");
     } finally {
       payNow.removeAttribute("aria-busy");

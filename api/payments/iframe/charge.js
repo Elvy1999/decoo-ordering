@@ -85,16 +85,30 @@ const createIdempotencyKey = () => {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-const fetchJson = async (url, options) => {
-  const resp = await fetch(url, options);
-  const text = await resp.text();
-  let data = null;
+const fetchJson = async (url, options = {}) => {
+  const timeoutMs = typeof options.timeout === "number" ? options.timeout : 20000;
+  const controller = new AbortController();
+  const signal = controller.signal;
+
+  const fetchOpts = { ...options, signal };
+
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    data = JSON.parse(text);
-  } catch {
-    data = { raw: text };
+    const resp = await fetch(url, fetchOpts);
+    const text = await resp.text();
+    let data = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+    return { resp, data };
+  } catch (err) {
+    // rethrow so callers can handle; keep err.name for AbortError
+    throw err;
+  } finally {
+    clearTimeout(timeout);
   }
-  return { resp, data };
 };
 
 const toNumber = (value) => {
@@ -143,6 +157,7 @@ const paymentRequired = (res, details) => {
 };
 
 export default async function handler(req, res) {
+  console.log('[payment] handler START', { path: req.url || req.path || null, method: req.method || null });
   if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
   if (!req.body || typeof req.body !== "object") {
     return fail(res, 400, "VALIDATION_ERROR", "Invalid request body.");
@@ -295,19 +310,31 @@ export default async function handler(req, res) {
       note: noteText,
     };
 
-    console.error("[payment] ecomm orderCreatePayload", orderCreatePayload);
-
-    const { resp: orderResp, data: orderData } = await fetchJson(`${CLOVER_ECOMM_BASE}/v1/orders`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "Idempotency-Key": createIdempotencyKey(),
-      },
-      body: JSON.stringify(orderCreatePayload),
+    console.log("[payment] ecomm order create -> calling Clover eComm", {
+      flow: "ecomm",
+      externalOrder: externalOrderNumber,
+      amount_cents: order.total_cents,
     });
 
+    let orderResp, orderData;
+    try {
+      ({ resp: orderResp, data: orderData } = await fetchJson(`${CLOVER_ECOMM_BASE}/v1/orders`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "Idempotency-Key": createIdempotencyKey(),
+        },
+        body: JSON.stringify(orderCreatePayload),
+        timeout: 20000,
+      }));
+    } catch (err) {
+      console.error('[payment] ecomm order create ERROR', { error: shortError(err), name: err?.name || null });
+      throw err;
+    }
+
+    console.log('[payment] ecomm order create response', { status: orderResp.status, snippet: responseSnippet(orderData) });
     if (!orderResp.ok) {
       console.error("[payment] ecomm order create failed", {
         status: orderResp.status,
@@ -330,14 +357,10 @@ export default async function handler(req, res) {
       description: `Online Order #${order.id}`,
     };
 
-    console.error("[payment] ecomm pay payload", {
-      orderId: ecommOrderId,
-      amount: payPayload.amount,
-    });
-
-    const { resp: payResp, data: payData } = await fetchJson(
-      `${CLOVER_ECOMM_BASE}/v1/orders/${ecommOrderId}/pay`,
-      {
+    console.log("[payment] ecomm pay -> calling Clover eComm pay", { orderId: ecommOrderId, amount: payPayload.amount });
+    let payResp, payData;
+    try {
+      ({ resp: payResp, data: payData } = await fetchJson(`${CLOVER_ECOMM_BASE}/v1/orders/${ecommOrderId}/pay`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
@@ -346,9 +369,14 @@ export default async function handler(req, res) {
           "Idempotency-Key": createIdempotencyKey(),
         },
         body: JSON.stringify(payPayload),
-      },
-    );
+        timeout: 20000,
+      }));
+    } catch (err) {
+      console.error('[payment] ecomm pay ERROR', { error: shortError(err), name: err?.name || null });
+      return fail(res, 502, 'PAYMENT_GATEWAY_ERROR', 'Payment provider timeout or error.');
+    }
 
+    console.log('[payment] ecomm pay response', { status: payResp.status, snippet: responseSnippet(payData) });
     if (!payResp.ok) {
       console.error("[payment] ecomm pay failed", {
         status: payResp.status,
@@ -393,90 +421,70 @@ export default async function handler(req, res) {
     const warnings = [];
     let posOrderId = null;
 
-    try {
-      const merchantId = await resolveCloverMerchantId(process.env.CLOVER_MERCHANT_ID);
-      const accessToken = await getValidCloverAccessToken(merchantId);
-      const isDelivery = String(order.fulfillment_type || "").toLowerCase() === "delivery";
-      const orderTypeId = isDelivery
-        ? process.env.CLOVER_ORDER_TYPE_DELIVERY_ID
-        : process.env.CLOVER_ORDER_TYPE_PICKUP_ID;
-
-      const posNote = formatOrderNote({
-        orderId: order.id,
-        type: order.fulfillment_type,
-        name: order.customer_name,
-        phone: order.customer_phone,
-        address: order.delivery_address,
-        items,
-        subtotalCents: order.subtotal_cents,
-        discountCents: order.discount_cents,
-        totalCents: order.total_cents,
-        promoCode: order.promo_code,
-      });
-
-      const posOrder = await createCloverOrder({
-        merchantId,
-        accessToken,
-        title: `Online Order #${order.id}`,
-        note: posNote,
-        orderTypeId,
-      });
-
-      posOrderId = posOrder?.id || posOrder?.order?.id || null;
-      if (!posOrderId) throw new Error("Clover POS order id missing");
-
-      await addOnlineOrderLineItem({
-        merchantId,
-        accessToken,
-        cloverOrderId: posOrderId,
-        totalCents: order.total_cents,
-        note: posNote,
-      });
-
-      let printStatus = "ok";
-      let printError = null;
+    // POS sync (Clover REST) is non-blocking and best-effort: run asynchronously so it doesn't delay checkout response.
+    (async () => {
       try {
-        await printCloverOrder({ merchantId, accessToken, cloverOrderId: posOrderId });
-      } catch (printErr) {
-        printStatus = "failed";
-        printError = shortError(printErr?.details || printErr);
-        warnings.push("CLOVER_PRINT_FAILED");
-        console.error("[payment] Clover print_event failed", {
-          order_id: order.id,
-          merchant_id: merchantId,
-          clover_order_id: posOrderId,
-          error: printErr,
-          details: printErr?.details || null,
+        const merchantId = await resolveCloverMerchantId(process.env.CLOVER_MERCHANT_ID);
+        const accessToken = await getValidCloverAccessToken(merchantId);
+        const isDelivery = String(order.fulfillment_type || "").toLowerCase() === "delivery";
+        const orderTypeId = isDelivery
+          ? process.env.CLOVER_ORDER_TYPE_DELIVERY_ID
+          : process.env.CLOVER_ORDER_TYPE_PICKUP_ID;
+
+        const posNote = formatOrderNote({
+          orderId: order.id,
+          type: order.fulfillment_type,
+          name: order.customer_name,
+          phone: order.customer_phone,
+          address: order.delivery_address,
+          items,
+          subtotalCents: order.subtotal_cents,
+          discountCents: order.discount_cents,
+          totalCents: order.total_cents,
+          promoCode: order.promo_code,
         });
+
+        console.log('[payment] POS sync -> creating POS order (async)', { merchantId, orderId: order.id });
+        const posOrder = await createCloverOrder({
+          merchantId,
+          accessToken,
+          title: `Online Order #${order.id}`,
+          note: posNote,
+          orderTypeId,
+        });
+
+        posOrderId = posOrder?.id || posOrder?.order?.id || null;
+        if (!posOrderId) throw new Error("Clover POS order id missing");
+
+        await addOnlineOrderLineItem({
+          merchantId,
+          accessToken,
+          cloverOrderId: posOrderId,
+          totalCents: order.total_cents,
+          note: posNote,
+        });
+
+        try {
+          await printCloverOrder({ merchantId, accessToken, cloverOrderId: posOrderId });
+        } catch (printErr) {
+          warnings.push("CLOVER_PRINT_FAILED");
+          console.error("[payment] Clover print_event failed (async)", { order_id: order.id, error: shortError(printErr) });
+        }
+
+        await supabase
+          .from("orders")
+          .update({ clover_order_id: posOrderId, print_status: "ok" })
+          .eq("id", order.id)
+          .catch((e) => console.error('[payment] POS save failed (async)', { order_id: order.id, error: shortError(e) }));
+      } catch (posErr) {
+        console.error('[payment] Clover POS sync failed (async)', { order_id: order.id, error: shortError(posErr) });
+        await supabase
+          .from("orders")
+          .update({ print_status: "failed", print_error: shortError(posErr) })
+          .eq("id", order.id)
+          .catch(() => null);
       }
-
-      const { error: posSaveError } = await supabase
-        .from("orders")
-        .update({
-          clover_order_id: posOrderId,
-          print_status: printStatus,
-          print_error: printError,
-        })
-        .eq("id", order.id);
-
-      if (posSaveError) throw posSaveError;
-    } catch (posErr) {
-      warnings.push("CLOVER_POS_SYNC_FAILED");
-      console.error("[payment] Clover POS sync failed", {
-        order_id: order.id,
-        error: posErr,
-        details: posErr?.details || null,
-      });
-
-      await supabase
-        .from("orders")
-        .update({
-          print_status: "failed",
-          print_error: shortError(posErr?.details || posErr),
-        })
-        .eq("id", order.id)
-        .catch(() => null);
-    }
+    })();
 
     return ok(res, {
       ok: true,
