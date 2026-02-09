@@ -1,4 +1,5 @@
 import { ok, fail, methodNotAllowed, supabaseServerClient } from "../shared.js";
+import { sendOrderCompletedSms } from "../twilio.js";
 import { requireStaff } from "./auth.js";
 
 function parseId(value) {
@@ -47,6 +48,16 @@ export default async function handler(req, res) {
       .single();
 
     if (error) throw error;
+
+    // If the staff marked the order as completed, send an SMS notification to the customer (best-effort).
+    if (nextStatus === "completed") {
+      try {
+        // fire-and-forget but await to log errors without blocking response on SMS failures
+        await sendOrderCompletedSms(supabase, id);
+      } catch (e) {
+        console.error("Failed sending order completed SMS:", e);
+      }
+    }
 
     return ok(res, data);
   } catch (err) {

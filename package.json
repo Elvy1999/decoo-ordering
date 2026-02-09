@@ -7,5 +7,6 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.78.0",
     "dotenv": "^17.2.3"
+    ,"twilio": "^4.0.0"
   }
 }
