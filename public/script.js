@@ -804,6 +804,10 @@ function isReviewStepActive() {
 }
 
 function resetPendingPaymentUI(message) {
+  if (paymentSection && !paymentSection.hidden && payNowBtn?.getAttribute("aria-busy") === "true") {
+    console.warn("[payment] resetPendingPaymentUI skipped (payment in progress)");
+    return;
+  }
   pendingOrder = null;
   setPaymentError("");
   setPaymentSectionVisible(false);
@@ -1307,18 +1311,11 @@ const buildPaymentFieldsMarkup = () => {
             <div class="input-errors" id="clover-cvv-errors" role="alert"></div>
           </div>
 
-          <div class="pay-col pay-col--zip">
-            <label class="pay-label" for="pay-zip">ZIP</label>
-            <input
-              id="pay-zip"
-              class="pay-field pay-field--input"
-              type="text"
-              inputmode="numeric"
-              autocomplete="postal-code"
-              placeholder="Zip"
-              maxlength="10"
-            />
-          </div>
+                  <div class="pay-col pay-col--zip">
+                    <label class="pay-label" for="clover-postal-code">ZIP</label>
+                    <div id="clover-postal-code" class="pay-field pay-field--iframe"></div>
+                    <div class="input-errors" id="clover-postal-code-errors" role="alert"></div>
+                  </div>
         </div>
       </div>
     `;
@@ -1427,10 +1424,12 @@ const initCloverPayment = () => {
     const cardNumber = createField("CARD_NUMBER", legacyCardNumberStyleOptions);
     const cardExpiry = createField("CARD_DATE");
     const cardCvv = createField("CARD_CVV");
+    const cardPostal = createField("CARD_POSTAL_CODE");
 
     cardNumber.mount("#clover-card-number");
     cardExpiry.mount("#clover-expiry");
     cardCvv.mount("#clover-cvv");
+    cardPostal.mount("#clover-postal-code");
 
     if (!useLegacyCreateStyles && isMobilePaymentViewport && typeof cardNumber.update === "function") {
       try {
@@ -1450,6 +1449,7 @@ const initCloverPayment = () => {
       cardNumber,
       cardExpiry,
       cardCvv,
+      cardPostal,
     };
 
     scrollCheckoutModalToBottom();
@@ -1457,6 +1457,7 @@ const initCloverPayment = () => {
     bindFieldErrors(cardNumber, document.querySelector("#clover-card-number-errors"));
     bindFieldErrors(cardExpiry, document.querySelector("#clover-expiry-errors"));
     bindFieldErrors(cardCvv, document.querySelector("#clover-cvv-errors"));
+    bindFieldErrors(cardPostal, document.querySelector("#clover-postal-code-errors"));
 
     cloverReady = true;
     setPayNowState(false, "Pay Now");
@@ -1699,6 +1700,7 @@ document.addEventListener("click", async (event) => {
 
   const payNow = event.target.closest("[data-pay-now]");
   if (payNow) {
+    console.log("[payment] Pay Now clicked");
     if (!pendingOrder) {
       setPaymentError("Please place your order first.");
       return;
@@ -1715,14 +1717,7 @@ document.addEventListener("click", async (event) => {
         throw new Error("Payment is unavailable.");
       }
 
-      const zip = (document.getElementById("pay-zip")?.value || "").trim();
-      console.log("[payment] before createToken", { hasClover: !!cloverInstance, zipLen: zip.length });
-
-      if (!zip) {
-        setPaymentError("Please enter ZIP code.");
-        return;
-      }
-
+      console.log("[payment] about to createToken");
       const withTimeout = (promise, ms, label) =>
         Promise.race([
           promise,
@@ -1733,22 +1728,18 @@ document.addEventListener("click", async (event) => {
 
       let tokenResult;
       try {
-        // NOTE: pass ZIP if supported by Clover tokenization
-        tokenResult = await withTimeout(
-          cloverInstance.createToken({ postalCode: zip }),
-          12000,
-          "createToken",
-        );
+        tokenResult = await withTimeout(cloverInstance.createToken(), 12000, "createToken");
       } catch (e) {
         console.error("[payment] createToken failed/hung", e);
         setPaymentError("Card verification is not responding. Try again, or try a different browser/device.");
         return;
       }
 
-      console.log("[payment] after createToken", tokenResult);
+      console.log("[payment] createToken result", tokenResult);
       const sourceId = tokenResult?.token;
-      const tokenError =
-        tokenResult?.errors?.[0]?.message || tokenResult?.error?.message || tokenResult?.error || "";
+      const tokenError = tokenResult?.errors
+        ? Object.values(tokenResult.errors).filter(Boolean).join(" ")
+        : tokenResult?.error?.message || tokenResult?.error || "";
 
       if (!sourceId) {
         setPaymentError(tokenError || "Please check your card details and try again.");
@@ -1764,6 +1755,7 @@ document.addEventListener("click", async (event) => {
       const timeoutMs = 25000; // 25s
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+      console.log("[payment] token ok, calling server charge now");
       const paymentEndpoint = "/api/payments/iframe/charge";
       console.log("[payment] about to call backend", { orderId: pendingOrder.order_id });
       console.log("[payment] request ->", {
