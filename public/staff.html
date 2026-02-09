@@ -435,25 +435,25 @@
   <body>
     <header class="topbar">
       <div class="topbar__inner">
-        <h1 class="brand">Staff</h1>
+        <h1 class="brand">Personal</h1>
         <div class="topbar__actions">
-          <a class="btn btn--ghost" href="/inventory.html">Inventory</a>
-          <button class="btn btn--ghost" id="enable-sound" type="button">Enable Sound</button>
-          <button class="btn btn--ghost" id="logout-btn" type="button">Logout</button>
+          <a class="btn btn--ghost" href="/inventory.html">Inventario</a>
+          <button class="btn btn--ghost" id="enable-sound" type="button">Activar sonido</button>
+          <button class="btn btn--ghost" id="logout-btn" type="button">Cerrar sesion</button>
         </div>
       </div>
     </header>
 
     <main class="shell">
       <section class="panel" id="login-panel">
-        <h2>Staff Login</h2>
-        <p class="helper">Enter your staff token to access paid orders.</p>
+        <h2>Acceso de personal</h2>
+        <p class="helper">Ingresa tu token de personal para ver pedidos pagados.</p>
         <form id="login-form">
           <label class="field" for="staff-token-input">
-            <span>Staff Token</span>
+            <span>Token de personal</span>
             <input id="staff-token-input" type="password" placeholder="********" autocomplete="off" />
           </label>
-          <button class="btn btn--accent" id="login-btn" type="submit">Enter</button>
+          <button class="btn btn--accent" id="login-btn" type="submit">Entrar</button>
         </form>
       </section>
 
@@ -461,15 +461,15 @@
         <div class="app-layout">
           <section class="panel">
             <div class="orders-head">
-              <h2>Paid Orders</h2>
-              <button class="btn btn--ghost" id="refresh-btn" type="button">Refresh</button>
+              <h2>Pedidos pagados</h2>
+              <button class="btn btn--ghost" id="refresh-btn" type="button">Actualizar</button>
             </div>
             <div class="orders-list" id="orders-list"></div>
           </section>
 
           <section class="panel details-panel" id="details-panel">
-            <h3>Order Details</h3>
-            <p class="helper">Select an order to view details.</p>
+            <h3>Detalles del pedido</h3>
+            <p class="helper">Selecciona un pedido para ver detalles.</p>
           </section>
         </div>
       </section>

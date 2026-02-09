@@ -194,8 +194,8 @@ const formatDateTime = (value) => {
 };
 
 const formatFulfillmentType = (value) => {
-  if (value === "pickup") return "Pickup";
-  if (value === "delivery") return "Delivery";
+  if (value === "pickup") return "Recogida";
+  if (value === "delivery") return "Entrega";
   return value || "-";
 };
 
@@ -232,7 +232,7 @@ const renderOrders = () => {
   if (!orders.length) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.textContent = "No paid orders yet.";
+    empty.textContent = "Aun no hay pedidos pagados.";
     ordersListEl.appendChild(empty);
     return;
   }
@@ -263,13 +263,13 @@ const renderOrders = () => {
 
     const pill = document.createElement("span");
     pill.className = `pill ${completed ? "pill--done" : "pill--open"}`;
-    pill.textContent = completed ? "Completed" : "Open";
+    pill.textContent = completed ? "Completado" : "Abierto";
 
     const toggleBtn = document.createElement("button");
     toggleBtn.type = "button";
     toggleBtn.className = `order-toggle${completed ? " done" : ""}`;
     toggleBtn.disabled = updatingOrderIds.has(idKey);
-    toggleBtn.textContent = completed ? "Mark Open" : "Mark Complete";
+    toggleBtn.textContent = completed ? "Marcar como abierto" : "Marcar como completado";
     toggleBtn.addEventListener("click", (event) => {
       event.stopPropagation();
       void updateCompletion(order, !completed);
@@ -326,8 +326,8 @@ const renderDetails = () => {
 
   if (!order) {
     detailsPanelEl.innerHTML = `
-      <h3>Order Details</h3>
-      <p class="helper">Select an order to view details.</p>
+      <h3>Detalles del pedido</h3>
+      <p class="helper">Selecciona un pedido para ver detalles.</p>
     `;
     return;
   }
@@ -349,43 +349,43 @@ const renderDetails = () => {
 
   const deliveryAddress =
     order.fulfillment_type === "delivery" && order.delivery_address
-      ? `<div class="details-block"><strong>Delivery address:</strong> ${escapeHtml(order.delivery_address)}</div>`
+      ? `<div class="details-block"><strong>Direccion de entrega:</strong> ${escapeHtml(order.delivery_address)}</div>`
       : "";
 
   const notes = String(order.notes || "").trim();
   const notesMarkup = notes
-    ? `<div class="details-block"><strong>Notes</strong><div class="note">${escapeHtml(notes)}</div></div>`
+    ? `<div class="details-block"><strong>Notas</strong><div class="note">${escapeHtml(notes)}</div></div>`
     : "";
   const discountCents = Number(order.discount_cents || 0);
   const discountLabel = discountCents > 0 ? `-${formatMoney(discountCents)}` : formatMoney(discountCents);
 
   detailsPanelEl.innerHTML = `
-    <h3>Order ${escapeHtml(`#${order.id}`)}</h3>
-    <p class="helper">Paid time: ${escapeHtml(formatDateTime(getOrderTimeValue(order)))}</p>
+    <h3>Pedido ${escapeHtml(`#${order.id}`)}</h3>
+    <p class="helper">Hora de pago: ${escapeHtml(formatDateTime(getOrderTimeValue(order)))}</p>
 
     <div class="details-block">
       <div class="details-grid">
-        <div><span>Customer</span><br /><strong>${escapeHtml(order.customer_name || "-")}</strong></div>
-        <div><span>Phone</span><br /><strong>${escapeHtml(order.customer_phone || "-")}</strong></div>
-        <div><span>Type</span><br /><strong>${escapeHtml(formatFulfillmentType(order.fulfillment_type))}</strong></div>
-        <div><span>Status</span><br /><strong>${isCompletedOrder(order) ? "Completed" : "Open"}</strong></div>
+        <div><span>Cliente</span><br /><strong>${escapeHtml(order.customer_name || "-")}</strong></div>
+        <div><span>Telefono</span><br /><strong>${escapeHtml(order.customer_phone || "-")}</strong></div>
+        <div><span>Tipo</span><br /><strong>${escapeHtml(formatFulfillmentType(order.fulfillment_type))}</strong></div>
+        <div><span>Estado</span><br /><strong>${isCompletedOrder(order) ? "Completado" : "Abierto"}</strong></div>
       </div>
     </div>
 
     ${deliveryAddress}
 
     <div class="details-block">
-      <strong>Items</strong>
+      <strong>Articulos</strong>
       <ul class="items-list">${itemsMarkup}</ul>
     </div>
 
     <div class="details-block">
-      <strong>Totals</strong>
+      <strong>Totales</strong>
       <div class="totals">
         <div class="totals-row"><span>Subtotal</span><strong>${formatMoney(order.subtotal_cents)}</strong></div>
-        <div class="totals-row"><span>Processing fee</span><strong>${formatMoney(order.processing_fee_cents)}</strong></div>
-        <div class="totals-row"><span>Delivery fee</span><strong>${formatMoney(order.delivery_fee_cents)}</strong></div>
-        <div class="totals-row"><span>Discount</span><strong>${discountLabel}</strong></div>
+        <div class="totals-row"><span>Cargo de procesamiento</span><strong>${formatMoney(order.processing_fee_cents)}</strong></div>
+        <div class="totals-row"><span>Cargo de entrega</span><strong>${formatMoney(order.delivery_fee_cents)}</strong></div>
+        <div class="totals-row"><span>Descuento</span><strong>${discountLabel}</strong></div>
         <div class="totals-row total"><span>Total</span><strong>${formatMoney(order.total_cents)}</strong></div>
       </div>
     </div>
@@ -405,7 +405,7 @@ const ensureSoundReady = () =>
 
 const playOrderSound = async () => {
   if (!audioEnabled) {
-    showToast("Tap Enable Sound", "error");
+    showToast("Toca Activar sonido", "error");
     return;
   }
   try {
@@ -419,7 +419,7 @@ const playOrderSound = async () => {
       orderSound.currentTime = SOUND_START_SEC;
     }, SOUND_DURATION_SEC * 1000);
   } catch (e) {
-    showToast("Tap Enable Sound", "error");
+    showToast("Toca Activar sonido", "error");
   }
 };
 
@@ -473,10 +473,10 @@ const pollOnce = async ({ silent = false } = {}) => {
       // new order detected
       await playOrderSound();
       localStorage.setItem(LAST_SEEN_KEY, String(newestTime));
-      showToast("New paid order");
+      showToast("Nuevo pedido pagado");
     }
   } catch (error) {
-    if (!silent) showToast(error.message || "Failed to load orders", "error");
+    if (!silent) showToast(error.message || "No se pudieron cargar los pedidos", "error");
   }
 };
 
@@ -499,9 +499,9 @@ const updateCompletion = async (order, completed) => {
     const nextStatus =
       typeof updated?.status === "string" ? updated.status : completed ? "completed" : "paid";
     orders = orders.map((row) => (String(row.id) === idKey ? { ...row, status: nextStatus } : row));
-    showToast(completed ? "Marked completed" : "Marked open");
+    showToast(completed ? "Marcado como completado" : "Marcado como abierto");
   } catch (error) {
-    showToast(error?.status === 401 ? "Unauthorized" : "Failed to update", "error");
+    showToast(error?.status === 401 ? "No autorizado" : "No se pudo actualizar", "error");
   } finally {
     updatingOrderIds.delete(idKey);
     renderOrders();
@@ -598,7 +598,7 @@ const handleUnauthorized = () => {
   stopLiveUpdates();
   setAuthState(false);
   resetOrdersState();
-  showToast("Unauthorized", "error");
+  showToast("No autorizado", "error");
 };
 
 const startAuthedSession = async (token, { showWelcome = false } = {}) => {
@@ -608,7 +608,7 @@ const startAuthedSession = async (token, { showWelcome = false } = {}) => {
   await loadOrders();
   startRealtime();
   startPolling();
-  if (showWelcome) showToast("Signed in");
+  if (showWelcome) showToast("Sesion iniciada");
 };
 
 loginForm?.addEventListener("submit", async (event) => {
@@ -617,7 +617,7 @@ loginForm?.addEventListener("submit", async (event) => {
 
   const token = tokenInput.value.trim();
   if (!token) {
-    showToast("Enter your staff token", "error");
+    showToast("Ingresa tu token de personal", "error");
     return;
   }
 
@@ -629,7 +629,7 @@ loginForm?.addEventListener("submit", async (event) => {
     localStorage.removeItem(TOKEN_KEY);
     setAuthState(false);
     resetOrdersState();
-    showToast(error?.status === 401 ? "Unauthorized" : error.message || "Login failed", "error");
+    showToast(error?.status === 401 ? "No autorizado" : error.message || "Inicio de sesion fallido", "error");
   } finally {
     loginBtn.disabled = false;
   }
@@ -640,7 +640,7 @@ logoutBtn?.addEventListener("click", () => {
   stopLiveUpdates();
   setAuthState(false);
   resetOrdersState();
-  showToast("Signed out");
+  showToast("Sesion cerrada");
 });
 
 refreshBtn?.addEventListener("click", () => {
@@ -662,7 +662,7 @@ enableSoundBtn?.addEventListener("click", async () => {
     sessionStorage.setItem("audioEnabled", "1");
     audioEnabled = true;
     if (enableSoundBtn) enableSoundBtn.hidden = true;
-    showToast("Sound enabled");
+    showToast("Sonido activado");
   } finally {
     if (enableSoundBtn) enableSoundBtn.disabled = false;
   }
@@ -681,7 +681,7 @@ const initialize = async () => {
     localStorage.removeItem(TOKEN_KEY);
     setAuthState(false);
     resetOrdersState();
-    showToast(error?.status === 401 ? "Unauthorized" : "Session expired", "error");
+    showToast(error?.status === 401 ? "No autorizado" : "Sesion expirada", "error");
   }
 };
 
