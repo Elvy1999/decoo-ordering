@@ -8,11 +8,7 @@ import {
   isNonEmptyString,
 } from "../../_handlers/shared.js";
 import { getValidCloverAccessToken, resolveCloverMerchantId } from "../../_lib/cloverAuth.js";
-import {
-  createCloverOrder,
-  addOnlineOrderLineItem,
-  printCloverOrder,
-} from "../../_lib/cloverOrders.js";
+import { createCloverOrder, addOnlineOrderLineItem, printCloverOrder } from "../../_lib/cloverOrders.js";
 
 const CLOVER_ECOMM_BASE = "https://scl.clover.com";
 
@@ -157,7 +153,7 @@ const paymentRequired = (res, details) => {
 };
 
 export default async function handler(req, res) {
-  console.log('[payment] handler START', { path: req.url || req.path || null, method: req.method || null });
+  console.log("[payment] handler START", { path: req.url || req.path || null, method: req.method || null });
   if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
   if (!req.body || typeof req.body !== "object") {
     return fail(res, 400, "VALIDATION_ERROR", "Invalid request body.");
@@ -195,9 +191,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const customerEmail = String(
-    process.env.CLOVER_FALLBACK_EMAIL || "orders@decoorestaurant.com",
-  ).trim();
+  const customerEmail = String(process.env.CLOVER_FALLBACK_EMAIL || "orders@decoorestaurant.com").trim();
 
   const supabase = supabaseServerClient();
 
@@ -330,11 +324,17 @@ export default async function handler(req, res) {
         timeout: 20000,
       }));
     } catch (err) {
-      console.error('[payment] ecomm order create ERROR', { error: shortError(err), name: err?.name || null });
+      console.error("[payment] ecomm order create ERROR", {
+        error: shortError(err),
+        name: err?.name || null,
+      });
       throw err;
     }
 
-    console.log('[payment] ecomm order create response', { status: orderResp.status, snippet: responseSnippet(orderData) });
+    console.log("[payment] ecomm order create response", {
+      status: orderResp.status,
+      snippet: responseSnippet(orderData),
+    });
     if (!orderResp.ok) {
       console.error("[payment] ecomm order create failed", {
         status: orderResp.status,
@@ -357,26 +357,35 @@ export default async function handler(req, res) {
       description: `Online Order #${order.id}`,
     };
 
-    console.log("[payment] ecomm pay -> calling Clover eComm pay", { orderId: ecommOrderId, amount: payPayload.amount });
+    console.log("[payment] ecomm pay -> calling Clover eComm pay", {
+      orderId: ecommOrderId,
+      amount: payPayload.amount,
+    });
     let payResp, payData;
     try {
-      ({ resp: payResp, data: payData } = await fetchJson(`${CLOVER_ECOMM_BASE}/v1/orders/${ecommOrderId}/pay`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "Idempotency-Key": createIdempotencyKey(),
+      ({ resp: payResp, data: payData } = await fetchJson(
+        `${CLOVER_ECOMM_BASE}/v1/orders/${ecommOrderId}/pay`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${CLOVER_ECOMM_PRIVATE_KEY}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "Idempotency-Key": createIdempotencyKey(),
+          },
+          body: JSON.stringify(payPayload),
+          timeout: 20000,
         },
-        body: JSON.stringify(payPayload),
-        timeout: 20000,
-      }));
+      ));
     } catch (err) {
-      console.error('[payment] ecomm pay ERROR', { error: shortError(err), name: err?.name || null });
-      return fail(res, 502, 'PAYMENT_GATEWAY_ERROR', 'Payment provider timeout or error.');
+      console.error("[payment] ecomm pay ERROR", { error: shortError(err), name: err?.name || null });
+      return fail(res, 502, "PAYMENT_GATEWAY_ERROR", "Payment provider timeout or error.");
     }
 
-    console.log('[payment] ecomm pay response', { status: payResp.status, snippet: responseSnippet(payData) });
+    console.log("[payment] ecomm pay response", {
+      status: payResp.status,
+      snippet: responseSnippet(payData),
+    });
     if (!payResp.ok) {
       console.error("[payment] ecomm pay failed", {
         status: payResp.status,
@@ -444,7 +453,7 @@ export default async function handler(req, res) {
           promoCode: order.promo_code,
         });
 
-        console.log('[payment] POS sync -> creating POS order (async)', { merchantId, orderId: order.id });
+        console.log("[payment] POS sync -> creating POS order (async)", { merchantId, orderId: order.id });
         const posOrder = await createCloverOrder({
           merchantId,
           accessToken,
@@ -468,16 +477,24 @@ export default async function handler(req, res) {
           await printCloverOrder({ merchantId, accessToken, cloverOrderId: posOrderId });
         } catch (printErr) {
           warnings.push("CLOVER_PRINT_FAILED");
-          console.error("[payment] Clover print_event failed (async)", { order_id: order.id, error: shortError(printErr) });
+          console.error("[payment] Clover print_event failed (async)", {
+            order_id: order.id,
+            error: shortError(printErr),
+          });
         }
 
         await supabase
           .from("orders")
           .update({ clover_order_id: posOrderId, print_status: "ok" })
           .eq("id", order.id)
-          .catch((e) => console.error('[payment] POS save failed (async)', { order_id: order.id, error: shortError(e) }));
+          .catch((e) =>
+            console.error("[payment] POS save failed (async)", { order_id: order.id, error: shortError(e) }),
+          );
       } catch (posErr) {
-        console.error('[payment] Clover POS sync failed (async)', { order_id: order.id, error: shortError(posErr) });
+        console.error("[payment] Clover POS sync failed (async)", {
+          order_id: order.id,
+          error: shortError(posErr),
+        });
         await supabase
           .from("orders")
           .update({ print_status: "failed", print_error: shortError(posErr) })

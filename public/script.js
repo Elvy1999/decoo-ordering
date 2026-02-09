@@ -25,8 +25,14 @@ const MENU_NAME_FILTER = {
 const GOURMET_ORDER = ["Steak & Cheese", "Shrimp", "Crab Meat", "Conch Meat (Lambi)"];
 const REGULAR_ORDER = ["Beef & Cheese", "Chicken & Cheese", "3 Cheese", "Pork & Cheese"];
 
-const normalizeName = (value) => String(value || "").trim().toLowerCase();
-const normalizeCategory = (value) => String(value || "").trim().toLowerCase();
+const normalizeName = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+const normalizeCategory = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 const toFiniteNumber = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -170,11 +176,7 @@ const fetchSettingsAndMenu = async () => {
     const settingsData = await settingsResponse.json();
     const menuRows = await menuResponse.json();
     appSettings = normalizeSettings(settingsData);
-    menuItems = Array.isArray(menuRows)
-      ? menuRows
-          .filter(isMenuItemActive)
-          .map(normalizeMenuItem)
-      : [];
+    menuItems = Array.isArray(menuRows) ? menuRows.filter(isMenuItemActive).map(normalizeMenuItem) : [];
     itemById = buildItemLookup(menuItems);
     setOrderingEnabledState(appSettings.orderingEnabled);
     setOrderingClosedBanner(!appSettings.orderingEnabled);
@@ -214,13 +216,24 @@ const calculateTotals = (
 ) => {
   const subtotal = getCartSubtotal(cartState);
   const subtotalCents = Math.max(0, Math.round(subtotal * 100));
-  const normalizedDiscountCents = Math.min(Math.max(0, Math.round(Number(discountCents) || 0)), subtotalCents);
+  const normalizedDiscountCents = Math.min(
+    Math.max(0, Math.round(Number(discountCents) || 0)),
+    subtotalCents,
+  );
   const normalizedDiscount = normalizedDiscountCents / 100;
   const processingFee = includeFees && subtotal > 0 ? appSettings?.processingFee || 0 : 0;
   const deliveryFee = orderType === "delivery" && includeDeliveryFee ? appSettings?.deliveryFee || 0 : 0;
   const tax = includeFees ? 0 : 0;
   const total = Math.max(0, subtotal + processingFee + deliveryFee + tax - normalizedDiscount);
-  return { subtotal, processingFee, deliveryFee, tax, discount: normalizedDiscount, discountCents: normalizedDiscountCents, total };
+  return {
+    subtotal,
+    processingFee,
+    deliveryFee,
+    tax,
+    discount: normalizedDiscount,
+    discountCents: normalizedDiscountCents,
+    total,
+  };
 };
 
 const getDeliveryMinState = (cartState) => {
@@ -388,9 +401,7 @@ const getSortedItemsForMenuKey = (key) => {
     items = items.filter((item) => normalizeName(item.name) === nameKey);
   }
 
-  return items
-    .slice()
-    .sort((a, b) => (Number(a.sortOrder || 0) || 0) - (Number(b.sortOrder || 0) || 0));
+  return items.slice().sort((a, b) => (Number(a.sortOrder || 0) || 0) - (Number(b.sortOrder || 0) || 0));
 };
 
 const splitEmpanadasItems = (items) => {
@@ -835,9 +846,13 @@ const refreshReviewTotals = (cartState = cart) => {
   updateTotalsBlock(checkoutTotals, calculateReviewTotals(cartState));
 };
 
-const normalizePromoCode = (code) => String(code || "").trim().toUpperCase();
+const normalizePromoCode = (code) =>
+  String(code || "")
+    .trim()
+    .toUpperCase();
 
-const getActivePromoInput = () => promoInputs.find((input) => !input.closest("[hidden]")) || promoInputs[0] || null;
+const getActivePromoInput = () =>
+  promoInputs.find((input) => !input.closest("[hidden]")) || promoInputs[0] || null;
 
 const setPromoApplyButtonsBusy = (busy) => {
   promoApplyBtns.forEach((button) => {
@@ -910,7 +925,8 @@ const applyPromo = async ({ code = "", silent = false, sourceInput = null } = {}
       setPromoMessage("", "");
     }
     refreshReviewTotals();
-    const promoChanged = prevPromoCode !== checkoutState.promoCode || prevDiscountCents !== checkoutState.discountCents;
+    const promoChanged =
+      prevPromoCode !== checkoutState.promoCode || prevDiscountCents !== checkoutState.discountCents;
     if (pendingOrder && promoChanged) {
       resetPendingPaymentUI("Promo changed. Please place the order again to continue to payment.");
     }
@@ -948,7 +964,8 @@ const applyPromo = async ({ code = "", silent = false, sourceInput = null } = {}
       clearPromo({ clearInput: false, clearMessage: true });
       setPromoMessage(message, "error");
       refreshReviewTotals();
-      const promoChanged = prevPromoCode !== checkoutState.promoCode || prevDiscountCents !== checkoutState.discountCents;
+      const promoChanged =
+        prevPromoCode !== checkoutState.promoCode || prevDiscountCents !== checkoutState.discountCents;
       if (pendingOrder && promoChanged) {
         resetPendingPaymentUI("Promo changed. Please place the order again to continue to payment.");
       }
@@ -968,7 +985,8 @@ const applyPromo = async ({ code = "", silent = false, sourceInput = null } = {}
     }
 
     refreshReviewTotals();
-    const promoChanged = prevPromoCode !== checkoutState.promoCode || prevDiscountCents !== checkoutState.discountCents;
+    const promoChanged =
+      prevPromoCode !== checkoutState.promoCode || prevDiscountCents !== checkoutState.discountCents;
     if (pendingOrder && promoChanged) {
       resetPendingPaymentUI("Promo changed. Please place the order again to continue to payment.");
     }
@@ -980,7 +998,8 @@ const applyPromo = async ({ code = "", silent = false, sourceInput = null } = {}
       setPromoMessage("Could not validate promo code. Please try again.", "error");
     }
     refreshReviewTotals();
-    const promoChanged = prevPromoCode !== checkoutState.promoCode || prevDiscountCents !== checkoutState.discountCents;
+    const promoChanged =
+      prevPromoCode !== checkoutState.promoCode || prevDiscountCents !== checkoutState.discountCents;
     if (pendingOrder && promoChanged) {
       resetPendingPaymentUI("Promo changed. Please place the order again to continue to payment.");
     }
@@ -1119,10 +1138,7 @@ const openCheckout = () => {
     if (Number.isFinite(pendingServerTotal) && pendingServerTotal >= 0) {
       pendingTotals.total = pendingServerTotal;
     }
-    updateTotalsBlock(
-      checkoutTotals,
-      pendingTotals,
-    );
+    updateTotalsBlock(checkoutTotals, pendingTotals);
     updateCheckoutUI();
     if (placeOrderBtn) placeOrderBtn.disabled = true;
     setPaymentSectionVisible(true);
@@ -1592,10 +1608,7 @@ document.addEventListener("click", async (event) => {
       if (Number.isFinite(pendingServerTotal) && pendingServerTotal >= 0) {
         pendingTotals.total = pendingServerTotal;
       }
-      updateTotalsBlock(
-        checkoutTotals,
-        pendingTotals,
-      );
+      updateTotalsBlock(checkoutTotals, pendingTotals);
       updateCheckoutUI();
       setPaymentSectionVisible(true);
       initCloverPayment();
@@ -1702,9 +1715,12 @@ document.addEventListener("click", async (event) => {
         throw new Error("Payment is unavailable.");
       }
 
-      console.log('[payment] creating clover token');
+      console.log("[payment] creating clover token");
       const tokenResult = await cloverInstance.createToken();
-      console.log('[payment] clover token created', { tokenSnippet: tokenResult?.token ? String(tokenResult.token).slice(0,8)+'...' : null, errors: tokenResult?.errors || tokenResult?.error ? true : false });
+      console.log("[payment] clover token created", {
+        tokenSnippet: tokenResult?.token ? String(tokenResult.token).slice(0, 8) + "..." : null,
+        errors: tokenResult?.errors || tokenResult?.error ? true : false,
+      });
       const sourceId = tokenResult?.token;
       const tokenError =
         tokenResult?.errors?.[0]?.message || tokenResult?.error?.message || tokenResult?.error || "";
@@ -1723,7 +1739,10 @@ document.addEventListener("click", async (event) => {
       const timeoutMs = 25000; // 25s
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-      console.log("[payment] request -> /api/payments/iframe/charge", { orderId: pendingOrder.order_id, sourceId: sourceId ? sourceId.slice(0,8) + '...' : null });
+      console.log("[payment] request -> /api/payments/iframe/charge", {
+        orderId: pendingOrder.order_id,
+        sourceId: sourceId ? sourceId.slice(0, 8) + "..." : null,
+      });
       let response;
       try {
         response = await fetch("/api/payments/iframe/charge", {
@@ -1741,18 +1760,21 @@ document.addEventListener("click", async (event) => {
         });
       } catch (err) {
         clearTimeout(timeoutId);
-        console.error('[payment] fetch error', err);
-        if (err.name === 'AbortError') {
-          setPaymentError('Payment timed out, please try again.');
+        console.error("[payment] fetch error", err);
+        if (err.name === "AbortError") {
+          setPaymentError("Payment timed out, please try again.");
         } else {
-          setPaymentError('Payment could not be processed. Please try again.');
+          setPaymentError("Payment could not be processed. Please try again.");
         }
         return;
       }
 
       clearTimeout(timeoutId);
       const data = await response.json().catch(() => null);
-      console.log('[payment] response', { status: response.status, bodySnippet: data ? JSON.stringify(data).slice(0,200) : null });
+      console.log("[payment] response", {
+        status: response.status,
+        bodySnippet: data ? JSON.stringify(data).slice(0, 200) : null,
+      });
       if (!response.ok || !data || !data.ok) {
         const message = getErrorMessage(data, "Payment was declined. Please try another card.");
         setPaymentError(message);
@@ -1773,7 +1795,7 @@ document.addEventListener("click", async (event) => {
       pendingOrder = null;
       resetPaymentUI();
     } catch (error) {
-      console.error('[payment] frontend error', error);
+      console.error("[payment] frontend error", error);
       setPaymentError("Payment could not be processed. Please try again.");
     } finally {
       payNow.removeAttribute("aria-busy");

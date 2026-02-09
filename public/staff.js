@@ -1,338 +1,338 @@
-const TOKEN_KEY = "STAFF_TOKEN"
+const TOKEN_KEY = "STAFF_TOKEN";
 // Poll interval in ms (approx every 5-7s; using 6000ms midpoint)
-const POLL_INTERVAL_MS = 6000
-const LAST_SEEN_KEY = "LAST_SEEN_ORDER_TIMESTAMP"
-const REALTIME_CHANNEL = "staff-orders-live"
+const POLL_INTERVAL_MS = 6000;
+const LAST_SEEN_KEY = "LAST_SEEN_ORDER_TIMESTAMP";
+const REALTIME_CHANNEL = "staff-orders-live";
 
-const loginPanel = document.getElementById("login-panel")
-const staffApp = document.getElementById("staff-app")
-const loginForm = document.getElementById("login-form")
-const loginBtn = document.getElementById("login-btn")
-const logoutBtn = document.getElementById("logout-btn")
-const tokenInput = document.getElementById("staff-token-input")
-const refreshBtn = document.getElementById("refresh-btn")
-const ordersListEl = document.getElementById("orders-list")
-const detailsPanelEl = document.getElementById("details-panel")
-const toastEl = document.getElementById("toast")
+const loginPanel = document.getElementById("login-panel");
+const staffApp = document.getElementById("staff-app");
+const loginForm = document.getElementById("login-form");
+const loginBtn = document.getElementById("login-btn");
+const logoutBtn = document.getElementById("logout-btn");
+const tokenInput = document.getElementById("staff-token-input");
+const refreshBtn = document.getElementById("refresh-btn");
+const ordersListEl = document.getElementById("orders-list");
+const detailsPanelEl = document.getElementById("details-panel");
+const toastEl = document.getElementById("toast");
 
-const supabaseLib = window.supabase
-const createClient = supabaseLib?.createClient
+const supabaseLib = window.supabase;
+const createClient = supabaseLib?.createClient;
 
-const orderSound = new Audio("/order_sound.mp3")
-orderSound.preload = "auto"
-orderSound.volume = 0.7
+const orderSound = new Audio("/order_sound.mp3");
+orderSound.preload = "auto";
+orderSound.volume = 0.7;
 
-const enableSoundBtn = document.getElementById("enable-sound")
-let audioEnabled = sessionStorage.getItem("audioEnabled") === "1"
-if (audioEnabled && enableSoundBtn) enableSoundBtn.hidden = true
+const enableSoundBtn = document.getElementById("enable-sound");
+let audioEnabled = sessionStorage.getItem("audioEnabled") === "1";
+if (audioEnabled && enableSoundBtn) enableSoundBtn.hidden = true;
 
-let orders = []
-let selectedOrderId = null
-let updatingOrderIds = new Set()
-let knownPaidOrderIds = new Set()
-let hasHydratedOrders = false
-let pollTimer = null
-let refreshDebounceTimer = null
-let supabaseClient = null
-let realtimeChannel = null
+let orders = [];
+let selectedOrderId = null;
+let updatingOrderIds = new Set();
+let knownPaidOrderIds = new Set();
+let hasHydratedOrders = false;
+let pollTimer = null;
+let refreshDebounceTimer = null;
+let supabaseClient = null;
+let realtimeChannel = null;
 
 const escapeHtml = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (char) => {
-    if (char === "&") return "&amp;"
-    if (char === "<") return "&lt;"
-    if (char === ">") return "&gt;"
-    if (char === '"') return "&quot;"
-    return "&#39;"
-  })
+    if (char === "&") return "&amp;";
+    if (char === "<") return "&lt;";
+    if (char === ">") return "&gt;";
+    if (char === '"') return "&quot;";
+    return "&#39;";
+  });
 
 const showToast = (message, type = "success") => {
-  if (!toastEl) return
-  toastEl.textContent = message
-  toastEl.className = `toast show toast--${type}`
-  clearTimeout(showToast._timer)
+  if (!toastEl) return;
+  toastEl.textContent = message;
+  toastEl.className = `toast show toast--${type}`;
+  clearTimeout(showToast._timer);
   showToast._timer = setTimeout(() => {
-    toastEl.className = "toast"
-  }, 2400)
-}
+    toastEl.className = "toast";
+  }, 2400);
+};
 
 const setAuthState = (isAuthed) => {
-  if (loginPanel) loginPanel.hidden = isAuthed
-  if (staffApp) staffApp.hidden = !isAuthed
-  if (logoutBtn) logoutBtn.style.display = isAuthed ? "inline-flex" : "none"
-}
+  if (loginPanel) loginPanel.hidden = isAuthed;
+  if (staffApp) staffApp.hidden = !isAuthed;
+  if (logoutBtn) logoutBtn.style.display = isAuthed ? "inline-flex" : "none";
+};
 
-const getToken = () => localStorage.getItem(TOKEN_KEY) || ""
+const getToken = () => localStorage.getItem(TOKEN_KEY) || "";
 
 const parseErrorMessage = (payload, fallback, status) => {
-  if (typeof payload?.error === "string") return payload.error
-  if (typeof payload?.error?.message === "string") return payload.error.message
-  if (typeof payload?.message === "string") return payload.message
-  if (status === 401) return "Unauthorized"
-  return fallback
-}
+  if (typeof payload?.error === "string") return payload.error;
+  if (typeof payload?.error?.message === "string") return payload.error.message;
+  if (typeof payload?.message === "string") return payload.message;
+  if (status === 401) return "Unauthorized";
+  return fallback;
+};
 
 const normalizeApiPath = (path) => {
-  const raw = String(path || "").trim()
-  if (!raw) return "/"
+  const raw = String(path || "").trim();
+  if (!raw) return "/";
 
   if (/^https?:\/\//i.test(raw)) {
-    const url = new URL(raw, window.location.origin)
+    const url = new URL(raw, window.location.origin);
     if (/decoorestaurant\.com$/i.test(url.hostname)) {
-      return `${url.pathname}${url.search}`
+      return `${url.pathname}${url.search}`;
     }
     if (url.origin !== window.location.origin) {
-      throw new Error("Cross-origin API calls are not allowed.")
+      throw new Error("Cross-origin API calls are not allowed.");
     }
-    return `${url.pathname}${url.search}`
+    return `${url.pathname}${url.search}`;
   }
 
-  const cleaned = raw.replace(/^\.\/+/, "")
-  if (cleaned.startsWith("api/")) return `/${cleaned}`
-  return cleaned.startsWith("/") ? cleaned : `/${cleaned}`
-}
+  const cleaned = raw.replace(/^\.\/+/, "");
+  if (cleaned.startsWith("api/")) return `/${cleaned}`;
+  return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
+};
 
 const apiFetch = async (path, { method = "GET", body, token, suppressUnauthorizedHandler = false } = {}) => {
-  const headers = { Accept: "application/json" }
-  const authToken = token ?? getToken()
-  if (authToken) headers.Authorization = `Bearer ${authToken}`
+  const headers = { Accept: "application/json" };
+  const authToken = token ?? getToken();
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
-  let payload
+  let payload;
   if (body !== undefined) {
-    headers["Content-Type"] = "application/json"
-    payload = JSON.stringify(body)
+    headers["Content-Type"] = "application/json";
+    payload = JSON.stringify(body);
   }
 
-  const response = await fetch(normalizeApiPath(path), { method, headers, body: payload })
-  const raw = await response.text()
+  const response = await fetch(normalizeApiPath(path), { method, headers, body: payload });
+  const raw = await response.text();
 
-  let data = null
+  let data = null;
   if (raw) {
     try {
-      data = JSON.parse(raw)
+      data = JSON.parse(raw);
     } catch {
-      data = null
+      data = null;
     }
   }
 
   if (response.status === 401) {
-    if (!suppressUnauthorizedHandler) handleUnauthorized()
-    const unauthorizedError = new Error("Unauthorized")
-    unauthorizedError.status = 401
-    throw unauthorizedError
+    if (!suppressUnauthorizedHandler) handleUnauthorized();
+    const unauthorizedError = new Error("Unauthorized");
+    unauthorizedError.status = 401;
+    throw unauthorizedError;
   }
 
   if (!response.ok) {
-    const error = new Error(parseErrorMessage(data, `Request failed (${response.status})`, response.status))
-    error.status = response.status
-    throw error
+    const error = new Error(parseErrorMessage(data, `Request failed (${response.status})`, response.status));
+    error.status = response.status;
+    throw error;
   }
 
-  return data
-}
+  return data;
+};
 
 const fetchStaffOrders = async ({ token, suppressUnauthorizedHandler = false } = {}) => {
-  const headers = { Accept: "application/json" }
-  const authToken = token ?? getToken()
-  if (authToken) headers.Authorization = `Bearer ${authToken}`
+  const headers = { Accept: "application/json" };
+  const authToken = token ?? getToken();
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
-  const response = await fetch("/api/staff/orders", { method: "GET", headers })
-  const raw = await response.text()
+  const response = await fetch("/api/staff/orders", { method: "GET", headers });
+  const raw = await response.text();
 
-  let data = null
+  let data = null;
   if (raw) {
     try {
-      data = JSON.parse(raw)
+      data = JSON.parse(raw);
     } catch {
-      data = null
+      data = null;
     }
   }
 
   if (response.status === 401) {
-    if (!suppressUnauthorizedHandler) handleUnauthorized()
-    const unauthorizedError = new Error("Unauthorized")
-    unauthorizedError.status = 401
-    throw unauthorizedError
+    if (!suppressUnauthorizedHandler) handleUnauthorized();
+    const unauthorizedError = new Error("Unauthorized");
+    unauthorizedError.status = 401;
+    throw unauthorizedError;
   }
 
   if (!response.ok) {
-    const error = new Error(parseErrorMessage(data, `Request failed (${response.status})`, response.status))
-    error.status = response.status
-    throw error
+    const error = new Error(parseErrorMessage(data, `Request failed (${response.status})`, response.status));
+    error.status = response.status;
+    throw error;
   }
 
-  return data
-}
+  return data;
+};
 
 const validateToken = async (token) => {
   if (!token) {
-    const error = new Error("Unauthorized")
-    error.status = 401
-    throw error
+    const error = new Error("Unauthorized");
+    error.status = 401;
+    throw error;
   }
-  await fetchStaffOrders({ token, suppressUnauthorizedHandler: true })
-}
+  await fetchStaffOrders({ token, suppressUnauthorizedHandler: true });
+};
 
 const formatMoney = (cents) => {
-  const amount = Number(cents) / 100
-  if (!Number.isFinite(amount)) return "$0.00"
-  return `$${amount.toFixed(2)}`
-}
+  const amount = Number(cents) / 100;
+  if (!Number.isFinite(amount)) return "$0.00";
+  return `$${amount.toFixed(2)}`;
+};
 
 const formatDateTime = (value) => {
-  if (!value) return "-"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleString([], {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  })
-}
+  });
+};
 
 const formatFulfillmentType = (value) => {
-  if (value === "pickup") return "Pickup"
-  if (value === "delivery") return "Delivery"
-  return value || "-"
-}
+  if (value === "pickup") return "Pickup";
+  if (value === "delivery") return "Delivery";
+  return value || "-";
+};
 
-const isPaidOrder = (order) => order?.payment_status === "paid" || Boolean(order?.paid_at)
-const isCompletedOrder = (order) => String(order?.status || "").toLowerCase() === "completed"
-const getOrderTimeValue = (order) => order?.paid_at || order?.created_at || null
+const isPaidOrder = (order) => order?.payment_status === "paid" || Boolean(order?.paid_at);
+const isCompletedOrder = (order) => String(order?.status || "").toLowerCase() === "completed";
+const getOrderTimeValue = (order) => order?.paid_at || order?.created_at || null;
 
-const findSelectedOrder = () => orders.find((order) => String(order.id) === String(selectedOrderId)) || null
+const findSelectedOrder = () => orders.find((order) => String(order.id) === String(selectedOrderId)) || null;
 
 const renderOrders = () => {
-  if (!ordersListEl) return
-  ordersListEl.innerHTML = ""
+  if (!ordersListEl) return;
+  ordersListEl.innerHTML = "";
 
   if (!orders.length) {
-    const empty = document.createElement("div")
-    empty.className = "empty-state"
-    empty.textContent = "No paid orders yet."
-    ordersListEl.appendChild(empty)
-    return
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "No paid orders yet.";
+    ordersListEl.appendChild(empty);
+    return;
   }
 
   orders.forEach((order) => {
-    const idKey = String(order.id)
-    const completed = isCompletedOrder(order)
-    const items = Array.isArray(order.items) ? order.items : []
-    const row = document.createElement("article")
-    row.className = `order-row${idKey === String(selectedOrderId) ? " is-selected" : ""}`
+    const idKey = String(order.id);
+    const completed = isCompletedOrder(order);
+    const items = Array.isArray(order.items) ? order.items : [];
+    const row = document.createElement("article");
+    row.className = `order-row${idKey === String(selectedOrderId) ? " is-selected" : ""}`;
 
-    const cardInner = document.createElement("div")
-    cardInner.className = "order-card-main"
+    const cardInner = document.createElement("div");
+    cardInner.className = "order-card-main";
 
-    const left = document.createElement("section")
-    left.className = "order-left"
+    const left = document.createElement("section");
+    left.className = "order-left";
     left.innerHTML = `
       <div class="order-code">${escapeHtml(order.order_code || order.id)}</div>
       <div class="order-meta">${escapeHtml(order.customer_name || "-")}</div>
       <div class="order-meta">${escapeHtml(order.customer_phone || "-")}</div>
       <div class="order-type"><strong>${formatFulfillmentType(order.fulfillment_type)}</strong></div>
       <div class="order-time">${escapeHtml(formatDateTime(getOrderTimeValue(order)))}</div>
-    `
+    `;
 
-    const controls = document.createElement("div")
-    controls.className = "order-controls"
+    const controls = document.createElement("div");
+    controls.className = "order-controls";
 
-    const pill = document.createElement("span")
-    pill.className = `pill ${completed ? "pill--done" : "pill--open"}`
-    pill.textContent = completed ? "Completed" : "Open"
+    const pill = document.createElement("span");
+    pill.className = `pill ${completed ? "pill--done" : "pill--open"}`;
+    pill.textContent = completed ? "Completed" : "Open";
 
-    const toggleBtn = document.createElement("button")
-    toggleBtn.type = "button"
-    toggleBtn.className = `order-toggle${completed ? " done" : ""}`
-    toggleBtn.disabled = updatingOrderIds.has(idKey)
-    toggleBtn.textContent = completed ? "Mark Open" : "Mark Complete"
+    const toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.className = `order-toggle${completed ? " done" : ""}`;
+    toggleBtn.disabled = updatingOrderIds.has(idKey);
+    toggleBtn.textContent = completed ? "Mark Open" : "Mark Complete";
     toggleBtn.addEventListener("click", (event) => {
-      event.stopPropagation()
-      void updateCompletion(order, !completed)
-    })
+      event.stopPropagation();
+      void updateCompletion(order, !completed);
+    });
 
-    controls.appendChild(pill)
-    controls.appendChild(toggleBtn)
-    left.appendChild(controls)
+    controls.appendChild(pill);
+    controls.appendChild(toggleBtn);
+    left.appendChild(controls);
 
-    const itemsCol = document.createElement("section")
-    itemsCol.className = "order-items"
+    const itemsCol = document.createElement("section");
+    itemsCol.className = "order-items";
 
     if (items.length) {
       for (const item of items) {
-        const itemRow = document.createElement("div")
-        itemRow.className = "order-item-row"
+        const itemRow = document.createElement("div");
+        itemRow.className = "order-item-row";
 
-        const name = document.createElement("span")
-        name.className = "order-item-name"
-        name.textContent = String(item?.item_name || "Item")
+        const name = document.createElement("span");
+        name.className = "order-item-name";
+        name.textContent = String(item?.item_name || "Item");
 
-        const qty = document.createElement("span")
-        qty.className = "order-item-qty"
-        qty.textContent = `x${Number(item?.qty || 0)}`
+        const qty = document.createElement("span");
+        qty.className = "order-item-qty";
+        qty.textContent = `x${Number(item?.qty || 0)}`;
 
-        itemRow.appendChild(name)
-        itemRow.appendChild(qty)
-        itemsCol.appendChild(itemRow)
+        itemRow.appendChild(name);
+        itemRow.appendChild(qty);
+        itemsCol.appendChild(itemRow);
       }
     } else {
-      const emptyItem = document.createElement("div")
-      emptyItem.className = "order-item-row"
-      emptyItem.innerHTML = `<span class="order-item-name">${escapeHtml("No items")}</span><span class="order-item-qty">-</span>`
-      itemsCol.appendChild(emptyItem)
+      const emptyItem = document.createElement("div");
+      emptyItem.className = "order-item-row";
+      emptyItem.innerHTML = `<span class="order-item-name">${escapeHtml("No items")}</span><span class="order-item-qty">-</span>`;
+      itemsCol.appendChild(emptyItem);
     }
 
-    cardInner.appendChild(left)
-    cardInner.appendChild(itemsCol)
-    row.appendChild(cardInner)
+    cardInner.appendChild(left);
+    cardInner.appendChild(itemsCol);
+    row.appendChild(cardInner);
 
     row.addEventListener("click", () => {
-      selectedOrderId = idKey
-      renderOrders()
-      renderDetails()
-    })
+      selectedOrderId = idKey;
+      renderOrders();
+      renderDetails();
+    });
 
-    ordersListEl.appendChild(row)
-  })
-}
+    ordersListEl.appendChild(row);
+  });
+};
 
 const renderDetails = () => {
-  if (!detailsPanelEl) return
-  const order = findSelectedOrder()
+  if (!detailsPanelEl) return;
+  const order = findSelectedOrder();
 
   if (!order) {
     detailsPanelEl.innerHTML = `
       <h3>Order Details</h3>
       <p class="helper">Select an order to view details.</p>
-    `
-    return
+    `;
+    return;
   }
 
-  const items = Array.isArray(order.items) ? order.items : []
+  const items = Array.isArray(order.items) ? order.items : [];
   const itemsMarkup =
     items.length > 0
       ? items
           .map((item) => {
-            const qty = Number(item?.qty || 0)
+            const qty = Number(item?.qty || 0);
             const lineTotal = Number.isFinite(Number(item?.line_total_cents))
               ? Number(item?.line_total_cents)
-              : Number(item?.unit_price_cents || 0) * qty
-            return `<li><span>${escapeHtml(item?.item_name || "Item")} x ${qty}</span><strong>${formatMoney(lineTotal)}</strong></li>`
+              : Number(item?.unit_price_cents || 0) * qty;
+            return `<li><span>${escapeHtml(item?.item_name || "Item")} x ${qty}</span><strong>${formatMoney(lineTotal)}</strong></li>`;
           })
           .join("")
-      : "<li><span>No items</span><strong>-</strong></li>"
+      : "<li><span>No items</span><strong>-</strong></li>";
 
   const deliveryAddress =
     order.fulfillment_type === "delivery" && order.delivery_address
       ? `<div class="details-block"><strong>Delivery address:</strong> ${escapeHtml(order.delivery_address)}</div>`
-      : ""
+      : "";
 
-  const notes = String(order.notes || "").trim()
+  const notes = String(order.notes || "").trim();
   const notesMarkup = notes
     ? `<div class="details-block"><strong>Notes</strong><div class="note">${escapeHtml(notes)}</div></div>`
-    : ""
-  const discountCents = Number(order.discount_cents || 0)
-  const discountLabel = discountCents > 0 ? `-${formatMoney(discountCents)}` : formatMoney(discountCents)
+    : "";
+  const discountCents = Number(order.discount_cents || 0);
+  const discountLabel = discountCents > 0 ? `-${formatMoney(discountCents)}` : formatMoney(discountCents);
 
   detailsPanelEl.innerHTML = `
     <h3>Order ${escapeHtml(order.order_code || order.id)}</h3>
@@ -366,315 +366,319 @@ const renderDetails = () => {
     </div>
 
     ${notesMarkup}
-  `
-}
+  `;
+};
 
 const playOrderSound = async () => {
   if (!audioEnabled) {
-    showToast("Tap Enable Sound", "error")
-    return
+    showToast("Tap Enable Sound", "error");
+    return;
   }
   try {
-    await playSoundThreeTimes()
+    await playSoundThreeTimes();
   } catch (e) {
-    showToast("Tap Enable Sound", "error")
+    showToast("Tap Enable Sound", "error");
   }
-}
+};
 
 async function playSoundThreeTimes() {
   for (let i = 0; i < 3; i++) {
     try {
-      orderSound.currentTime = 0
-      await orderSound.play()
+      orderSound.currentTime = 0;
+      await orderSound.play();
 
       // wait for ended or timeout
       await new Promise((resolve) => {
-        let resolved = false
+        let resolved = false;
         const onEnd = () => {
-          if (resolved) return
-          resolved = true
-          orderSound.removeEventListener("ended", onEnd)
-          clearTimeout(timeout)
-          resolve()
-        }
-        orderSound.addEventListener("ended", onEnd)
-        const timeout = setTimeout(() => {
-          if (resolved) return
-          resolved = true
-          orderSound.removeEventListener("ended", onEnd)
-          resolve()
-        }, Math.max(3000, (orderSound.duration || 0) * 1000 + 500))
-      })
+          if (resolved) return;
+          resolved = true;
+          orderSound.removeEventListener("ended", onEnd);
+          clearTimeout(timeout);
+          resolve();
+        };
+        orderSound.addEventListener("ended", onEnd);
+        const timeout = setTimeout(
+          () => {
+            if (resolved) return;
+            resolved = true;
+            orderSound.removeEventListener("ended", onEnd);
+            resolve();
+          },
+          Math.max(3000, (orderSound.duration || 0) * 1000 + 500),
+        );
+      });
     } catch (err) {
-      throw err
+      throw err;
     }
   }
 }
 
 const applyOrders = (nextOrders) => {
-  const paidOrders = (Array.isArray(nextOrders) ? nextOrders : []).filter(isPaidOrder)
-  orders = paidOrders
+  const paidOrders = (Array.isArray(nextOrders) ? nextOrders : []).filter(isPaidOrder);
+  orders = paidOrders;
 
   if (!selectedOrderId && orders.length) {
-    selectedOrderId = String(orders[0].id)
+    selectedOrderId = String(orders[0].id);
   } else if (selectedOrderId && !orders.some((order) => String(order.id) === String(selectedOrderId))) {
-    selectedOrderId = orders.length ? String(orders[0].id) : null
+    selectedOrderId = orders.length ? String(orders[0].id) : null;
   }
 
-  renderOrders()
-  renderDetails()
+  renderOrders();
+  renderDetails();
 
-  hasHydratedOrders = true
-}
+  hasHydratedOrders = true;
+};
 
 // Poll once and detect newest paid order; handles alerting via sound once per new order.
 const pollOnce = async ({ silent = false } = {}) => {
   try {
-    const data = await fetchStaffOrders()
+    const data = await fetchStaffOrders();
     // apply orders for rendering
-    applyOrders(data)
+    applyOrders(data);
 
     // determine newest paid order time value
-    const paid = (Array.isArray(data) ? data : []).filter(isPaidOrder)
-    if (!paid.length) return
+    const paid = (Array.isArray(data) ? data : []).filter(isPaidOrder);
+    if (!paid.length) return;
 
     paid.sort((a, b) => {
-      const ta = getOrderTimeValue(a) || ""
-      const tb = getOrderTimeValue(b) || ""
-      if (ta > tb) return -1
-      if (ta < tb) return 1
-      return 0
-    })
+      const ta = getOrderTimeValue(a) || "";
+      const tb = getOrderTimeValue(b) || "";
+      if (ta > tb) return -1;
+      if (ta < tb) return 1;
+      return 0;
+    });
 
-    const newest = paid[0]
-    const newestTime = getOrderTimeValue(newest)
-    if (!newestTime) return
+    const newest = paid[0];
+    const newestTime = getOrderTimeValue(newest);
+    if (!newestTime) return;
 
-    const stored = localStorage.getItem(LAST_SEEN_KEY)
+    const stored = localStorage.getItem(LAST_SEEN_KEY);
     if (!stored) {
       // first poll: set but do not alert
-      localStorage.setItem(LAST_SEEN_KEY, String(newestTime))
-      return
+      localStorage.setItem(LAST_SEEN_KEY, String(newestTime));
+      return;
     }
 
     if (String(newestTime) > String(stored)) {
       // new order detected
       try {
-        await playSoundThreeTimes()
+        await playSoundThreeTimes();
       } catch (err) {
         // likely blocked; ask user to enable
-        showToast("Tap Enable Sound", "error")
+        showToast("Tap Enable Sound", "error");
       }
-      localStorage.setItem(LAST_SEEN_KEY, String(newestTime))
-      showToast("New paid order")
+      localStorage.setItem(LAST_SEEN_KEY, String(newestTime));
+      showToast("New paid order");
     }
   } catch (error) {
-    if (!silent) showToast(error.message || "Failed to load orders", "error")
+    if (!silent) showToast(error.message || "Failed to load orders", "error");
   }
-}
+};
 
 const loadOrders = async ({ silent = false } = {}) => {
-  return pollOnce({ silent })
-}
+  return pollOnce({ silent });
+};
 
 const updateCompletion = async (order, completed) => {
-  const idKey = String(order.id)
-  if (updatingOrderIds.has(idKey)) return
+  const idKey = String(order.id);
+  if (updatingOrderIds.has(idKey)) return;
 
-  updatingOrderIds.add(idKey)
-  renderOrders()
+  updatingOrderIds.add(idKey);
+  renderOrders();
 
   try {
     const updated = await apiFetch(`/api/staff/orders/${encodeURIComponent(order.id)}/complete`, {
       method: "POST",
       body: { completed },
-    })
-    const nextStatus = typeof updated?.status === "string" ? updated.status : completed ? "completed" : "paid"
-    orders = orders.map((row) => (String(row.id) === idKey ? { ...row, status: nextStatus } : row))
-    showToast(completed ? "Marked completed" : "Marked open")
+    });
+    const nextStatus =
+      typeof updated?.status === "string" ? updated.status : completed ? "completed" : "paid";
+    orders = orders.map((row) => (String(row.id) === idKey ? { ...row, status: nextStatus } : row));
+    showToast(completed ? "Marked completed" : "Marked open");
   } catch (error) {
-    showToast(error?.status === 401 ? "Unauthorized" : "Failed to update", "error")
+    showToast(error?.status === 401 ? "Unauthorized" : "Failed to update", "error");
   } finally {
-    updatingOrderIds.delete(idKey)
-    renderOrders()
-    renderDetails()
+    updatingOrderIds.delete(idKey);
+    renderOrders();
+    renderDetails();
   }
-}
+};
 
 const getSupabaseClient = () => {
-  if (!createClient) return null
-  if (supabaseClient) return supabaseClient
+  if (!createClient) return null;
+  if (supabaseClient) return supabaseClient;
 
-  const url = window.PUBLIC_SUPABASE_URL
-  const anonKey = window.PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !anonKey) return null
+  const url = window.PUBLIC_SUPABASE_URL;
+  const anonKey = window.PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
 
-  supabaseClient = createClient(url, anonKey)
-  return supabaseClient
-}
+  supabaseClient = createClient(url, anonKey);
+  return supabaseClient;
+};
 
 const scheduleOrdersRefresh = () => {
-  if (refreshDebounceTimer) return
+  if (refreshDebounceTimer) return;
   refreshDebounceTimer = setTimeout(() => {
-    refreshDebounceTimer = null
-    void loadOrders({ silent: true })
-  }, 350)
-}
+    refreshDebounceTimer = null;
+    void loadOrders({ silent: true });
+  }, 350);
+};
 
 const startRealtime = () => {
-  const client = getSupabaseClient()
-  if (!client) return
+  const client = getSupabaseClient();
+  if (!client) return;
 
   if (realtimeChannel) {
-    client.removeChannel(realtimeChannel)
-    realtimeChannel = null
+    client.removeChannel(realtimeChannel);
+    realtimeChannel = null;
   }
 
   realtimeChannel = client
     .channel(REALTIME_CHANNEL)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, (payload) => {
-      if (isPaidOrder(payload?.new)) scheduleOrdersRefresh()
+      if (isPaidOrder(payload?.new)) scheduleOrdersRefresh();
     })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, (payload) => {
-      if (isPaidOrder(payload?.new) || isPaidOrder(payload?.old)) scheduleOrdersRefresh()
+      if (isPaidOrder(payload?.new) || isPaidOrder(payload?.old)) scheduleOrdersRefresh();
     })
-    .subscribe()
-}
+    .subscribe();
+};
 
 const stopRealtime = () => {
-  if (!realtimeChannel) return
-  const client = getSupabaseClient()
-  if (client) client.removeChannel(realtimeChannel)
-  realtimeChannel = null
-}
+  if (!realtimeChannel) return;
+  const client = getSupabaseClient();
+  if (client) client.removeChannel(realtimeChannel);
+  realtimeChannel = null;
+};
 
 const startPolling = () => {
   if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
 
   // run immediately
-  void pollOnce({ silent: true })
+  void pollOnce({ silent: true });
 
   // repeat at roughly POLL_INTERVAL_MS
   pollTimer = setInterval(() => {
-    void pollOnce({ silent: true })
-  }, POLL_INTERVAL_MS)
-}
+    void pollOnce({ silent: true });
+  }, POLL_INTERVAL_MS);
+};
 
 const stopLiveUpdates = () => {
   if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
   if (refreshDebounceTimer) {
-    clearTimeout(refreshDebounceTimer)
-    refreshDebounceTimer = null
+    clearTimeout(refreshDebounceTimer);
+    refreshDebounceTimer = null;
   }
-  stopRealtime()
-}
+  stopRealtime();
+};
 
 const resetOrdersState = () => {
-  orders = []
-  selectedOrderId = null
-  updatingOrderIds = new Set()
-  knownPaidOrderIds = new Set()
-  hasHydratedOrders = false
-  renderOrders()
-  renderDetails()
-}
+  orders = [];
+  selectedOrderId = null;
+  updatingOrderIds = new Set();
+  knownPaidOrderIds = new Set();
+  hasHydratedOrders = false;
+  renderOrders();
+  renderDetails();
+};
 
 const handleUnauthorized = () => {
-  localStorage.removeItem(TOKEN_KEY)
-  stopLiveUpdates()
-  setAuthState(false)
-  resetOrdersState()
-  showToast("Unauthorized", "error")
-}
+  localStorage.removeItem(TOKEN_KEY);
+  stopLiveUpdates();
+  setAuthState(false);
+  resetOrdersState();
+  showToast("Unauthorized", "error");
+};
 
 const startAuthedSession = async (token, { showWelcome = false } = {}) => {
-  await validateToken(token)
-  localStorage.setItem(TOKEN_KEY, token)
-  setAuthState(true)
-  await loadOrders()
-  startRealtime()
-  startPolling()
-  if (showWelcome) showToast("Signed in")
-}
+  await validateToken(token);
+  localStorage.setItem(TOKEN_KEY, token);
+  setAuthState(true);
+  await loadOrders();
+  startRealtime();
+  startPolling();
+  if (showWelcome) showToast("Signed in");
+};
 
 loginForm?.addEventListener("submit", async (event) => {
-  event.preventDefault()
-  if (!loginBtn || !tokenInput) return
+  event.preventDefault();
+  if (!loginBtn || !tokenInput) return;
 
-  const token = tokenInput.value.trim()
+  const token = tokenInput.value.trim();
   if (!token) {
-    showToast("Enter your staff token", "error")
-    return
+    showToast("Enter your staff token", "error");
+    return;
   }
 
-  loginBtn.disabled = true
+  loginBtn.disabled = true;
   try {
-    await startAuthedSession(token, { showWelcome: true })
-    tokenInput.value = ""
+    await startAuthedSession(token, { showWelcome: true });
+    tokenInput.value = "";
   } catch (error) {
-    localStorage.removeItem(TOKEN_KEY)
-    setAuthState(false)
-    resetOrdersState()
-    showToast(error?.status === 401 ? "Unauthorized" : error.message || "Login failed", "error")
+    localStorage.removeItem(TOKEN_KEY);
+    setAuthState(false);
+    resetOrdersState();
+    showToast(error?.status === 401 ? "Unauthorized" : error.message || "Login failed", "error");
   } finally {
-    loginBtn.disabled = false
+    loginBtn.disabled = false;
   }
-})
+});
 
 logoutBtn?.addEventListener("click", () => {
-  localStorage.removeItem(TOKEN_KEY)
-  stopLiveUpdates()
-  setAuthState(false)
-  resetOrdersState()
-  showToast("Signed out")
-})
+  localStorage.removeItem(TOKEN_KEY);
+  stopLiveUpdates();
+  setAuthState(false);
+  resetOrdersState();
+  showToast("Signed out");
+});
 
 refreshBtn?.addEventListener("click", () => {
-  void loadOrders()
-})
+  void loadOrders();
+});
 
 // Enable sound button: user gesture to unlock audio on mobile browsers
 enableSoundBtn?.addEventListener("click", async () => {
   try {
-    enableSoundBtn.disabled = true
+    enableSoundBtn.disabled = true;
     // attempt a quick play/pause sequence to unlock audio
     try {
-      await orderSound.play()
-      orderSound.pause()
-      orderSound.currentTime = 0
+      await orderSound.play();
+      orderSound.pause();
+      orderSound.currentTime = 0;
     } catch (e) {
       // ignore - some browsers block play until user gesture
     }
-    sessionStorage.setItem("audioEnabled", "1")
-    audioEnabled = true
-    if (enableSoundBtn) enableSoundBtn.hidden = true
-    showToast("Sound enabled")
+    sessionStorage.setItem("audioEnabled", "1");
+    audioEnabled = true;
+    if (enableSoundBtn) enableSoundBtn.hidden = true;
+    showToast("Sound enabled");
   } finally {
-    if (enableSoundBtn) enableSoundBtn.disabled = false
+    if (enableSoundBtn) enableSoundBtn.disabled = false;
   }
-})
+});
 
 const initialize = async () => {
-  setAuthState(false)
-  resetOrdersState()
+  setAuthState(false);
+  resetOrdersState();
 
-  const token = getToken()
-  if (!token) return
+  const token = getToken();
+  if (!token) return;
 
   try {
-    await startAuthedSession(token)
+    await startAuthedSession(token);
   } catch (error) {
-    localStorage.removeItem(TOKEN_KEY)
-    setAuthState(false)
-    resetOrdersState()
-    showToast(error?.status === 401 ? "Unauthorized" : "Session expired", "error")
+    localStorage.removeItem(TOKEN_KEY);
+    setAuthState(false);
+    resetOrdersState();
+    showToast(error?.status === 401 ? "Unauthorized" : "Session expired", "error");
   }
-}
+};
 
-initialize()
+initialize();
