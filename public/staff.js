@@ -1,5 +1,7 @@
 const TOKEN_KEY = "STAFF_TOKEN"
-const POLL_INTERVAL_MS = 12000
+// Poll interval in ms (approx every 5-7s; using 6000ms midpoint)
+const POLL_INTERVAL_MS = 6000
+const LAST_SEEN_KEY = "LAST_SEEN_ORDER_TIMESTAMP"
 const REALTIME_CHANNEL = "staff-orders-live"
 
 const loginPanel = document.getElementById("login-panel")
@@ -17,7 +19,12 @@ const supabaseLib = window.supabase
 const createClient = supabaseLib?.createClient
 
 const orderSound = new Audio("/order_sound.mp3")
+orderSound.preload = "auto"
 orderSound.volume = 0.7
+
+const enableSoundBtn = document.getElementById("enable-sound")
+let audioEnabled = sessionStorage.getItem("audioEnabled") === "1"
+if (audioEnabled && enableSoundBtn) enableSoundBtn.hidden = true
 
 let orders = []
 let selectedOrderId = null
@@ -362,24 +369,51 @@ const renderDetails = () => {
   `
 }
 
-const playOrderSound = () => {
-  orderSound.currentTime = 0
-  orderSound.play().catch(() => {})
+const playOrderSound = async () => {
+  if (!audioEnabled) {
+    showToast("Tap Enable Sound", "error")
+    return
+  }
+  try {
+    await playSoundThreeTimes()
+  } catch (e) {
+    showToast("Tap Enable Sound", "error")
+  }
+}
+
+async function playSoundThreeTimes() {
+  for (let i = 0; i < 3; i++) {
+    try {
+      orderSound.currentTime = 0
+      await orderSound.play()
+
+      // wait for ended or timeout
+      await new Promise((resolve) => {
+        let resolved = false
+        const onEnd = () => {
+          if (resolved) return
+          resolved = true
+          orderSound.removeEventListener("ended", onEnd)
+          clearTimeout(timeout)
+          resolve()
+        }
+        orderSound.addEventListener("ended", onEnd)
+        const timeout = setTimeout(() => {
+          if (resolved) return
+          resolved = true
+          orderSound.removeEventListener("ended", onEnd)
+          resolve()
+        }, Math.max(3000, (orderSound.duration || 0) * 1000 + 500))
+      })
+    } catch (err) {
+      throw err
+    }
+  }
 }
 
 const applyOrders = (nextOrders) => {
   const paidOrders = (Array.isArray(nextOrders) ? nextOrders : []).filter(isPaidOrder)
-  const nextKnown = new Set(paidOrders.map((order) => String(order.id)))
-  let newPaidCount = 0
-
-  if (hasHydratedOrders) {
-    nextKnown.forEach((id) => {
-      if (!knownPaidOrderIds.has(id)) newPaidCount += 1
-    })
-  }
-
   orders = paidOrders
-  knownPaidOrderIds = nextKnown
 
   if (!selectedOrderId && orders.length) {
     selectedOrderId = String(orders[0].id)
@@ -390,21 +424,57 @@ const applyOrders = (nextOrders) => {
   renderOrders()
   renderDetails()
 
-  if (hasHydratedOrders && newPaidCount > 0) {
-    playOrderSound()
-    showToast(newPaidCount > 1 ? "New paid orders" : "New paid order")
-  }
-
   hasHydratedOrders = true
 }
 
-const loadOrders = async ({ silent = false } = {}) => {
+// Poll once and detect newest paid order; handles alerting via sound once per new order.
+const pollOnce = async ({ silent = false } = {}) => {
   try {
     const data = await fetchStaffOrders()
+    // apply orders for rendering
     applyOrders(data)
+
+    // determine newest paid order time value
+    const paid = (Array.isArray(data) ? data : []).filter(isPaidOrder)
+    if (!paid.length) return
+
+    paid.sort((a, b) => {
+      const ta = getOrderTimeValue(a) || ""
+      const tb = getOrderTimeValue(b) || ""
+      if (ta > tb) return -1
+      if (ta < tb) return 1
+      return 0
+    })
+
+    const newest = paid[0]
+    const newestTime = getOrderTimeValue(newest)
+    if (!newestTime) return
+
+    const stored = localStorage.getItem(LAST_SEEN_KEY)
+    if (!stored) {
+      // first poll: set but do not alert
+      localStorage.setItem(LAST_SEEN_KEY, String(newestTime))
+      return
+    }
+
+    if (String(newestTime) > String(stored)) {
+      // new order detected
+      try {
+        await playSoundThreeTimes()
+      } catch (err) {
+        // likely blocked; ask user to enable
+        showToast("Tap Enable Sound", "error")
+      }
+      localStorage.setItem(LAST_SEEN_KEY, String(newestTime))
+      showToast("New paid order")
+    }
   } catch (error) {
     if (!silent) showToast(error.message || "Failed to load orders", "error")
   }
+}
+
+const loadOrders = async ({ silent = false } = {}) => {
+  return pollOnce({ silent })
 }
 
 const updateCompletion = async (order, completed) => {
@@ -479,9 +549,17 @@ const stopRealtime = () => {
 }
 
 const startPolling = () => {
-  if (pollTimer) clearInterval(pollTimer)
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+
+  // run immediately
+  void pollOnce({ silent: true })
+
+  // repeat at roughly POLL_INTERVAL_MS
   pollTimer = setInterval(() => {
-    void loadOrders({ silent: true })
+    void pollOnce({ silent: true })
   }, POLL_INTERVAL_MS)
 }
 
@@ -559,6 +637,27 @@ logoutBtn?.addEventListener("click", () => {
 
 refreshBtn?.addEventListener("click", () => {
   void loadOrders()
+})
+
+// Enable sound button: user gesture to unlock audio on mobile browsers
+enableSoundBtn?.addEventListener("click", async () => {
+  try {
+    enableSoundBtn.disabled = true
+    // attempt a quick play/pause sequence to unlock audio
+    try {
+      await orderSound.play()
+      orderSound.pause()
+      orderSound.currentTime = 0
+    } catch (e) {
+      // ignore - some browsers block play until user gesture
+    }
+    sessionStorage.setItem("audioEnabled", "1")
+    audioEnabled = true
+    if (enableSoundBtn) enableSoundBtn.hidden = true
+    showToast("Sound enabled")
+  } finally {
+    if (enableSoundBtn) enableSoundBtn.disabled = false
+  }
 })
 
 const initialize = async () => {
