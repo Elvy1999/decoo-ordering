@@ -13,6 +13,7 @@ const CATEGORY_MAP = {
   alcapurrias: "Fried",
   sorullitos: "Fried",
   tresLeches: "Desserts",
+  comfort_food: "Comfort Food",
 };
 
 const MENU_NAME_FILTER = {
@@ -374,6 +375,12 @@ const renderMenuItemMarkup = (item, cartState) => {
 };
 
 const renderMenuList = (listEl, items, cartState) => {
+  if (!listEl) return;
+  if (!Array.isArray(items) || items.length === 0) {
+    const emptyMessage = String(listEl.dataset.emptyMessage || "").trim();
+    listEl.innerHTML = emptyMessage ? `<li class="cart-empty">${emptyMessage}</li>` : "";
+    return;
+  }
   listEl.innerHTML = items.map((item) => renderMenuItemMarkup(item, cartState)).join("");
 };
 
@@ -389,6 +396,16 @@ const matchesItem = (item, target) => {
 };
 
 const getSortedItemsForMenuKey = (key) => {
+  if (key === "quipes_alcapurrias") {
+    const combinedItems = [...getSortedItemsForMenuKey("quipes"), ...getSortedItemsForMenuKey("alcapurrias")];
+    const seenIds = new Set();
+    return combinedItems.filter((item) => {
+      if (seenIds.has(item.id)) return false;
+      seenIds.add(item.id);
+      return true;
+    });
+  }
+
   const category = CATEGORY_MAP[key];
   if (!category) return [];
 
@@ -649,11 +666,11 @@ let cart = {};
 // --- DOM references ---
 const modalPairs = [
   ["[data-empanadas]", "#empanadas-modal"],
-  ["[data-alcapurrias]", "#alcapurrias-modal"],
-  ["[data-quipes]", "#quipes-modal"],
+  ["[data-quipes-alcapurrias]", "#quipes-modal"],
   ["[data-pinchos]", "#pinchos-modal"],
   ["[data-sorullitos]", "#sorullitos-modal"],
   ["[data-tres-leches]", "#tres-leches-modal"],
+  ["[data-comfort-food]", "#comfort-food-modal"],
   ["[data-juices]", "#juices-modal"],
   ["[data-beverages]", "#beverages-modal"],
 ];

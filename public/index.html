@@ -77,13 +77,9 @@
               <img src="images/Pinchos.webp" alt="Pinchos" />
               <div class="menu-card__label">Pinchos</div>
             </article>
-            <article class="menu-card menu-card--quipe" data-quipes>
+            <article class="menu-card menu-card--quipe" data-quipes-alcapurrias>
               <img src="images/quipe.jpg" alt="Quipes" />
-              <div class="menu-card__label">Quipes</div>
-            </article>
-            <article class="menu-card" data-alcapurrias>
-              <img src="images/Alcapurrias.jpg" alt="Alcapurrias" />
-              <div class="menu-card__label">Alcapurrias</div>
+              <div class="menu-card__label">Quipes / Alcapurrias</div>
             </article>
             <article class="menu-card" data-sorullitos>
               <img src="images/Sorullitos.jpg" alt="Sorullitos" />
@@ -92,6 +88,10 @@
             <article class="menu-card" data-tres-leches>
               <img src="images/tres_leches.jpg" alt="Tres Leches" />
               <div class="menu-card__label">Tres Leches</div>
+            </article>
+            <article class="menu-card" data-comfort-food>
+              <img src="images/comfortfood.jpg" alt="Comfort Food" />
+              <div class="menu-card__label">Comfort Food</div>
             </article>
           </div>
         </div>
@@ -178,27 +178,14 @@
       </div>
     </div>
 
-    <div class="modal modal--single" id="alcapurrias-modal" aria-hidden="true">
-      <div class="modal__content" role="dialog" aria-modal="true">
-        <button class="modal__close" type="button" data-modal-close>X</button>
-        <h3>Alcapurria</h3>
-        <p><span class="price-list__note">Golden fried yuca filled with savory chicken</span></p>
-        <ul class="price-list" data-menu-list="alcapurrias"></ul>
-        <div class="modal-actions">
-          <button class="modal-btn modal-btn--secondary" type="button" data-add-drink>Add Drink</button>
-          <button class="modal-btn modal-btn--primary" type="button" data-continue>Continue</button>
-        </div>
-      </div>
-    </div>
-
     <div class="modal modal--single" id="quipes-modal" aria-hidden="true">
       <div class="modal__content" role="dialog" aria-modal="true">
         <button class="modal__close" type="button" data-modal-close>X</button>
-        <h3>Quipe</h3>
+        <h3>Quipes / Alcapurrias</h3>
         <p>
-          <span class="price-list__note">(Crispy fried whole wheat croquette filled with seasoned beef)</span>
+          <span class="price-list__note">Choose your favorite fried option.</span>
         </p>
-        <ul class="price-list" data-menu-list="quipes"></ul>
+        <ul class="price-list" data-menu-list="quipes_alcapurrias"></ul>
         <div class="modal-actions">
           <button class="modal-btn modal-btn--secondary" type="button" data-add-drink>Add Drink</button>
           <button class="modal-btn modal-btn--primary" type="button" data-continue>Continue</button>
@@ -240,6 +227,21 @@
         <ul class="price-list" data-menu-list="tresLeches"></ul>
         <div class="modal-actions">
           <button class="modal-btn modal-btn--secondary" type="button" data-add-drink>Add Drink</button>
+          <button class="modal-btn modal-btn--primary" type="button" data-continue>Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal modal--single" id="comfort-food-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Comfort Food</h3>
+        <ul
+          class="price-list"
+          data-menu-list="comfort_food"
+          data-empty-message="Comfort Food items coming soon."
+        ></ul>
+        <div class="modal-actions">
           <button class="modal-btn modal-btn--primary" type="button" data-continue>Continue</button>
         </div>
       </div>
