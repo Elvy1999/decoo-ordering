@@ -420,6 +420,16 @@ const getSortedItemsForMenuKey = (key) => {
     items = items.filter((item) => normalizeName(item.name) === nameKey);
   }
 
+  if (key === "comfort_food") {
+    const sorullitosNameKey = normalizeName(MENU_NAME_FILTER.sorullitos || "Sorullitos");
+    const sorullitosItems = menuItems.filter((item) => normalizeName(item.name) === sorullitosNameKey);
+    if (sorullitosItems.length > 0) {
+      const mergedById = new Map();
+      [...items, ...sorullitosItems].forEach((item) => mergedById.set(item.id, item));
+      items = Array.from(mergedById.values());
+    }
+  }
+
   return items.slice().sort((a, b) => (Number(a.sortOrder || 0) || 0) - (Number(b.sortOrder || 0) || 0));
 };
 
@@ -670,7 +680,6 @@ const modalPairs = [
   ["[data-empanadas]", "#empanadas-modal"],
   ["[data-quipes-alcapurrias]", "#quipes-modal"],
   ["[data-pinchos]", "#pinchos-modal"],
-  ["[data-sorullitos]", "#sorullitos-modal"],
   ["[data-tres-leches]", "#tres-leches-modal"],
   ["[data-comfort-food]", "#comfort-food-modal"],
   ["[data-juices]", "#juices-modal"],
