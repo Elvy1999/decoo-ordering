@@ -508,6 +508,18 @@ a {
   position: relative;
 }
 
+#comfort-food-modal {
+  align-items: center;
+  justify-content: center;
+}
+
+#comfort-food-modal .modal__content {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-bottom: 28px;
+  max-height: min(88vh, 700px);
+}
+
 .modal__content h3 {
   margin-top: 0;
 }
@@ -1311,10 +1323,22 @@ a {
   #quipes-modal .modal__content,
   #pinchos-modal .modal__content,
   #tres-leches-modal .modal__content,
-  #comfort-food-modal .modal__content,
   #juices-modal .modal__content,
   #beverages-modal .modal__content {
     padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+
+  #comfort-food-modal {
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+  }
+
+  #comfort-food-modal .modal__content {
+    margin-top: 0;
+    margin-bottom: 0;
+    max-height: 78vh;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
   }
 
   #empanadas-modal {
