@@ -19,7 +19,7 @@ const CATEGORY_MAP = {
 const MENU_NAME_FILTER = {
   quipes: "Quipe",
   alcapurrias: "Alcapurria",
-  sorullitos: "Sorullitos",
+  sorullitos: ["Sorullito", "Sorullitos"],
   tresLeches: "Tres Leches",
 };
 
@@ -397,6 +397,11 @@ const matchesItem = (item, target) => {
   return itemName.includes("lambi") || itemName.includes("conch");
 };
 
+const isSorullitoName = (name) => {
+  const n = normalizeName(name);
+  return n === "sorullito" || n === "sorullitos";
+};
+
 const getSortedItemsForMenuKey = (key) => {
   if (key === "quipes_alcapurrias") {
     const combinedItems = [...getSortedItemsForMenuKey("quipes"), ...getSortedItemsForMenuKey("alcapurrias")];
@@ -414,20 +419,24 @@ const getSortedItemsForMenuKey = (key) => {
   const categoryKeys = new Set([normalizeCategory(category), normalizeCategory(key)]);
   let items = menuItems.filter((item) => categoryKeys.has(normalizeCategory(item.category)));
 
-  const requiredName = MENU_NAME_FILTER[key];
-  if (requiredName) {
-    const nameKey = normalizeName(requiredName);
-    items = items.filter((item) => normalizeName(item.name) === nameKey);
+  if (key === "comfort_food") {
+    // Keep Sorullito/Sorullitos visible under Comfort Foods even if categorized elsewhere.
+    const sorullitoItems = menuItems.filter((item) => isSorullitoName(item.name));
+    const seenIds = new Set(items.map((item) => item.id));
+    sorullitoItems.forEach((item) => {
+      if (seenIds.has(item.id)) return;
+      seenIds.add(item.id);
+      items.push(item);
+    });
   }
 
-  if (key === "comfort_food") {
-    const sorullitosNameKey = normalizeName(MENU_NAME_FILTER.sorullitos || "Sorullitos");
-    const sorullitosItems = menuItems.filter((item) => normalizeName(item.name) === sorullitosNameKey);
-    if (sorullitosItems.length > 0) {
-      const mergedById = new Map();
-      [...items, ...sorullitosItems].forEach((item) => mergedById.set(item.id, item));
-      items = Array.from(mergedById.values());
-    }
+  const requiredName = MENU_NAME_FILTER[key];
+  if (requiredName) {
+    const nameKeys = Array.isArray(requiredName)
+      ? requiredName.map((name) => normalizeName(name))
+      : [normalizeName(requiredName)];
+    const nameSet = new Set(nameKeys);
+    items = items.filter((item) => nameSet.has(normalizeName(item.name)));
   }
 
   return items.slice().sort((a, b) => (Number(a.sortOrder || 0) || 0) - (Number(b.sortOrder || 0) || 0));
@@ -682,6 +691,7 @@ const modalPairs = [
   ["[data-pinchos]", "#pinchos-modal"],
   ["[data-tres-leches]", "#tres-leches-modal"],
   ["[data-comfort-food]", "#comfort-food-modal"],
+  ["[data-sorullitos]", "#sorullitos-modal"],
   ["[data-juices]", "#juices-modal"],
   ["[data-beverages]", "#beverages-modal"],
 ];

@@ -89,6 +89,10 @@
               <img src="images/tres_leches.jpg" alt="Tres Leches" />
               <div class="menu-card__label">Tres Leches</div>
             </article>
+            <article class="menu-card" data-sorullitos>
+              <img src="images/Sorullitos.jpg" alt="Sorullitos" />
+              <div class="menu-card__label">Sorullitos</div>
+            </article>
           </div>
         </div>
       </section>
@@ -225,6 +229,19 @@
           data-menu-list="comfort_food"
           data-empty-message="Comfort Foods coming soon."
         ></ul>
+        <div class="modal-actions">
+          <button class="modal-btn modal-btn--secondary" type="button" data-add-drink>Add Drink</button>
+          <button class="modal-btn modal-btn--primary" type="button" data-continue>Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal modal--single" id="sorullitos-modal" aria-hidden="true">
+      <div class="modal__content" role="dialog" aria-modal="true">
+        <button class="modal__close" type="button" data-modal-close>X</button>
+        <h3>Sorullitos</h3>
+        <p><span class="price-list__note">Golden fried corn sticks, crispy outside and soft inside.</span></p>
+        <ul class="price-list" data-menu-list="sorullitos"></ul>
         <div class="modal-actions">
           <button class="modal-btn modal-btn--secondary" type="button" data-add-drink>Add Drink</button>
           <button class="modal-btn modal-btn--primary" type="button" data-continue>Continue</button>
