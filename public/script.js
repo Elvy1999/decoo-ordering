@@ -19,7 +19,7 @@ const CATEGORY_MAP = {
 const MENU_NAME_FILTER = {
   quipes: "Quipe",
   alcapurrias: "Alcapurria",
-  sorullitos: ["Sorullito", "Sorullitos"],
+  sorullitos: ["Sorullito", "Sorullitos", "Sorrulito", "Sorrulitos"],
   tresLeches: "Tres Leches",
 };
 
@@ -399,7 +399,7 @@ const matchesItem = (item, target) => {
 
 const isSorullitoName = (name) => {
   const n = normalizeName(name);
-  return n === "sorullito" || n === "sorullitos";
+  return n === "sorullito" || n === "sorullitos" || n === "sorrulito" || n === "sorrulitos";
 };
 
 const getSortedItemsForMenuKey = (key) => {
