@@ -297,6 +297,9 @@ a {
 .menu-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  justify-content: center;
+  max-width: 1200px;
+  margin: 0 auto;
   gap: 24px;
 }
 
@@ -1539,7 +1542,7 @@ p {
 
 @media (min-width: 1200px) {
   .menu-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(5, 200px);
     gap: 16px;
   }
   .hero__tagline {
