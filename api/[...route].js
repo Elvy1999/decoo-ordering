@@ -11,6 +11,7 @@ import handleAdminOrder from "./_handlers/admin/order.js";
 import handleAdminOrders from "./_handlers/admin/orders.js";
 import handleAdminReprint from "./_handlers/admin/reprint.js";
 import handleAdminSettings from "./_handlers/admin/settings.js";
+import handleAdminStatsSummary from "./_handlers/admin/statsSummary.js";
 import { handleAdminPromoCodes } from "./_handlers/admin/promoCodes.js";
 import { handleAdminPromoCode } from "./_handlers/admin/promoCode.js";
 import handleStaff from "./_handlers/staff.js";
@@ -119,6 +120,9 @@ export default async function handler(req, res) {
         return handleAdminOrder(req, res);
       case "settings":
         return handleAdminSettings(req, res);
+      case "stats/summary":
+      case "stats/daily":
+        return handleAdminStatsSummary(req, res);
       case "promo-codes":
         return handleAdminPromoCodes(req, res);
       case "promo-code":

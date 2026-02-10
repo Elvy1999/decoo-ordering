@@ -16,6 +16,7 @@ const ADMIN_MENU_PATH = `${ADMIN_ROUTE_BASE}menu`;
 const ADMIN_MENU_ITEM_PATH = `${ADMIN_ROUTE_BASE}menu-item`;
 const ADMIN_ORDERS_PATH = `${ADMIN_ROUTE_BASE}orders`;
 const ADMIN_ORDER_PATH = `${ADMIN_ROUTE_BASE}order`;
+const ADMIN_STATS_SUMMARY_PATH = `${ADMIN_ROUTE_BASE}stats/summary`;
 const ADMIN_PROMO_CODES_PATH = `${ADMIN_ROUTE_BASE}promo-codes`;
 const ADMIN_PROMO_CODE_PATH = `${ADMIN_ROUTE_BASE}promo-code`;
 const ADMIN_REPRINT_PATH = "/api/admin?route=reprint";
@@ -53,6 +54,15 @@ const promoTableBody = document.querySelector("[data-promo-table]");
 const promoError = document.querySelector("[data-promo-error]");
 const promoSuccess = document.querySelector("[data-promo-success]");
 const promoValueHint = document.querySelector("[data-promo-value-hint]");
+const statsDateInput = document.getElementById("stats-date");
+const statsTodayDate = document.getElementById("stats-today-date");
+const statsTodayOrders = document.getElementById("stats-today-orders");
+const statsTodayRevenue = document.getElementById("stats-today-revenue");
+const statsWeekOrders = document.getElementById("stats-week-orders");
+const statsWeekRevenue = document.getElementById("stats-week-revenue");
+const statsMonthOrders = document.getElementById("stats-month-orders");
+const statsMonthRevenue = document.getElementById("stats-month-revenue");
+const statsLast7Chart = document.getElementById("stats-last-7-chart");
 
 let menuItems = [];
 let orders = [];
@@ -190,6 +200,193 @@ const formatMoney = (cents) => {
   const value = Number(cents) / 100;
   if (!Number.isFinite(value)) return "$0.00";
   return `$${value.toFixed(2)}`;
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ISO_DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const toIsoDateKey = (date) => date.toISOString().slice(0, 10);
+
+const parseIsoDateKey = (value) => {
+  if (!ISO_DATE_KEY_RE.test(String(value || ""))) return null;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toIsoDateKey(parsed) === value ? parsed : null;
+};
+
+const getTodayDateKey = () => toIsoDateKey(new Date());
+
+const toNonNegativeInt = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.max(0, Math.round(num));
+};
+
+const getSelectedStatsDate = () => {
+  const inputValue = statsDateInput?.value;
+  const parsed = parseIsoDateKey(inputValue);
+  if (parsed) return toIsoDateKey(parsed);
+
+  const fallback = getTodayDateKey();
+  if (statsDateInput) statsDateInput.value = fallback;
+  return fallback;
+};
+
+const buildEmptyLast7Days = (selectedDateKey) => {
+  const selectedDate = parseIsoDateKey(selectedDateKey) || parseIsoDateKey(getTodayDateKey());
+  if (!selectedDate) return [];
+  const buckets = [];
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const date = new Date(selectedDate.getTime() - offset * DAY_MS);
+    buckets.push({
+      date: toIsoDateKey(date),
+      ordersCount: 0,
+      revenueCents: 0,
+    });
+  }
+  return buckets;
+};
+
+const normalizeLast7Days = (rows, selectedDateKey) => {
+  const expected = buildEmptyLast7Days(selectedDateKey);
+  if (!Array.isArray(rows) || rows.length === 0) return expected;
+
+  const byDate = new Map();
+  rows.forEach((row) => {
+    if (!row || !parseIsoDateKey(row.date)) return;
+    byDate.set(row.date, {
+      date: row.date,
+      ordersCount: toNonNegativeInt(row.ordersCount),
+      revenueCents: toNonNegativeInt(row.revenueCents),
+    });
+  });
+
+  return expected.map((day) => byDate.get(day.date) || day);
+};
+
+const normalizeSalesSummary = (payload, selectedDateKey) => {
+  const todayDate = parseIsoDateKey(payload?.today?.date) ? payload.today.date : selectedDateKey;
+  return {
+    today: {
+      date: todayDate,
+      ordersCount: toNonNegativeInt(payload?.today?.ordersCount),
+      revenueCents: toNonNegativeInt(payload?.today?.revenueCents),
+    },
+    weekToDate: {
+      ordersCount: toNonNegativeInt(payload?.weekToDate?.ordersCount),
+      revenueCents: toNonNegativeInt(payload?.weekToDate?.revenueCents),
+    },
+    monthToDate: {
+      ordersCount: toNonNegativeInt(payload?.monthToDate?.ordersCount),
+      revenueCents: toNonNegativeInt(payload?.monthToDate?.revenueCents),
+    },
+    last7Days: normalizeLast7Days(payload?.last7Days, selectedDateKey),
+  };
+};
+
+const formatStatsDateLabel = (dateKey) => {
+  const date = parseIsoDateKey(dateKey);
+  if (!date) return dateKey || "-";
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+};
+
+const formatChartDateShort = (dateKey) => {
+  const date = parseIsoDateKey(dateKey);
+  if (!date) return dateKey || "-";
+  return date.toLocaleDateString(undefined, {
+    month: "numeric",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+};
+
+const formatChartDateLong = (dateKey) => {
+  const date = parseIsoDateKey(dateKey);
+  if (!date) return dateKey || "-";
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+};
+
+const renderLast7DaysChart = (rows = []) => {
+  if (!statsLast7Chart) return;
+  statsLast7Chart.innerHTML = "";
+
+  const maxRevenue = rows.reduce((max, day) => Math.max(max, toNonNegativeInt(day.revenueCents)), 0);
+
+  rows.forEach((day) => {
+    const revenueCents = toNonNegativeInt(day.revenueCents);
+    const ordersCount = toNonNegativeInt(day.ordersCount);
+    const item = document.createElement("div");
+    item.className = "sales-chart__item";
+
+    const tooltip = `${formatChartDateLong(day.date)}: ${formatMoney(revenueCents)} (${ordersCount} orders)`;
+    item.dataset.tooltip = tooltip;
+
+    const barWrap = document.createElement("div");
+    barWrap.className = "sales-chart__bar-wrap";
+
+    const bar = document.createElement("div");
+    bar.className = "sales-chart__bar";
+    bar.tabIndex = 0;
+    bar.setAttribute("aria-label", tooltip);
+
+    if (maxRevenue <= 0 || revenueCents <= 0) {
+      bar.style.height = "2px";
+      bar.style.opacity = maxRevenue <= 0 ? "0.35" : "0.2";
+    } else {
+      const barHeightPercent = Math.max(3, Math.round((revenueCents / maxRevenue) * 100));
+      bar.style.height = `${barHeightPercent}%`;
+    }
+
+    const label = document.createElement("div");
+    label.className = "sales-chart__label";
+    label.textContent = formatChartDateShort(day.date);
+
+    barWrap.appendChild(bar);
+    item.appendChild(barWrap);
+    item.appendChild(label);
+    statsLast7Chart.appendChild(item);
+  });
+};
+
+const renderSalesSummary = (summary) => {
+  if (!statsTodayDate) return;
+
+  statsTodayDate.textContent = formatStatsDateLabel(summary.today.date);
+  statsTodayOrders.textContent = String(toNonNegativeInt(summary.today.ordersCount));
+  statsTodayRevenue.textContent = formatMoney(summary.today.revenueCents);
+
+  statsWeekOrders.textContent = String(toNonNegativeInt(summary.weekToDate.ordersCount));
+  statsWeekRevenue.textContent = formatMoney(summary.weekToDate.revenueCents);
+
+  statsMonthOrders.textContent = String(toNonNegativeInt(summary.monthToDate.ordersCount));
+  statsMonthRevenue.textContent = formatMoney(summary.monthToDate.revenueCents);
+
+  renderLast7DaysChart(summary.last7Days);
+};
+
+const loadSalesSummary = async () => {
+  if (!statsTodayDate) return;
+  const selectedDateKey = getSelectedStatsDate();
+
+  try {
+    const data = await adminFetch(`${ADMIN_STATS_SUMMARY_PATH}&date=${encodeURIComponent(selectedDateKey)}`);
+    renderSalesSummary(normalizeSalesSummary(data, selectedDateKey));
+  } catch (error) {
+    renderSalesSummary(normalizeSalesSummary(null, selectedDateKey));
+    showToast(error.message || "No se pudieron cargar las ventas resumidas.", "error");
+  }
 };
 
 const formatFulfillmentType = (value) => {
@@ -459,6 +656,7 @@ const scheduleOrdersRefresh = () => {
   ordersRefreshTimer = setTimeout(() => {
     ordersRefreshTimer = null;
     loadOrders();
+    loadSalesSummary();
   }, 400);
 };
 
@@ -866,12 +1064,17 @@ const initialize = async () => {
   const token = getToken();
   setAuthState(false);
   updatePromoValueHint();
+  if (statsDateInput) {
+    const todayDateKey = getTodayDateKey();
+    if (!parseIsoDateKey(statsDateInput.value)) statsDateInput.value = todayDateKey;
+    statsDateInput.max = todayDateKey;
+  }
 
   if (token) {
     try {
       await validateToken(token);
       setAuthState(true);
-      await Promise.all([loadSettings(), loadMenu(), loadOrders(), refreshPromoCodes()]);
+      await Promise.all([loadSettings(), loadMenu(), loadOrders(), refreshPromoCodes(), loadSalesSummary()]);
       startRealtime();
     } catch (error) {
       sessionStorage.removeItem(TOKEN_KEY);
@@ -894,7 +1097,7 @@ loginBtn.addEventListener("click", async () => {
     await validateToken(token);
     sessionStorage.setItem(TOKEN_KEY, token);
     setAuthState(true);
-    await Promise.all([loadSettings(), loadMenu(), loadOrders(), refreshPromoCodes()]);
+    await Promise.all([loadSettings(), loadMenu(), loadOrders(), refreshPromoCodes(), loadSalesSummary()]);
     startRealtime();
     showToast("Bienvenido de nuevo.");
     tokenInput.value = "";
@@ -914,12 +1117,15 @@ logoutBtn.addEventListener("click", () => {
   setPromoCache([]);
   renderPromoCodes([]);
   clearPromoFeedback();
+  renderSalesSummary(normalizeSalesSummary(null, getSelectedStatsDate()));
   showToast("Sesion cerrada.");
 });
 
 menuSearch.addEventListener("input", renderMenu);
 settingsForm.addEventListener("submit", saveSettings);
 ordersRefreshBtn.addEventListener("click", loadOrders);
+ordersRefreshBtn.addEventListener("click", loadSalesSummary);
+if (statsDateInput) statsDateInput.addEventListener("change", loadSalesSummary);
 if (promoTypeSelect) promoTypeSelect.addEventListener("change", updatePromoValueHint);
 if (promoForm) promoForm.addEventListener("submit", savePromoCode);
 document.addEventListener("click", handlePromoEditClick);
