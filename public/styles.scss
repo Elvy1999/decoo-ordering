@@ -341,12 +341,14 @@ a {
 }
 
 .comfort-food-img {
-  object-position: 50% 20%;
+  object-fit: contain;
+  object-position: center;
 }
 
 @media (min-width: 768px) {
   .comfort-food-img {
-    object-position: 50% 20%;
+    object-fit: contain;
+    object-position: center;
   }
 }
 

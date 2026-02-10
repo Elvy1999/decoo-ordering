@@ -334,14 +334,18 @@ a {
 }
 
 .comfort-food-img {
-  -o-object-position: 50% 20%;
-  object-position: 50% 20%;
+  -o-object-fit: contain;
+  object-fit: contain;
+  -o-object-position: center;
+  object-position: center;
 }
 
 @media (min-width: 768px) {
   .comfort-food-img {
-    -o-object-position: 50% 20%;
-    object-position: 50% 20%;
+    -o-object-fit: contain;
+    object-fit: contain;
+    -o-object-position: center;
+    object-position: center;
   }
 }
 
