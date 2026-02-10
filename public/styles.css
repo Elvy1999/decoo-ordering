@@ -333,6 +333,18 @@ a {
   object-position: center 30%;
 }
 
+.comfort-food-img {
+  -o-object-position: 50% 20%;
+  object-position: 50% 20%;
+}
+
+@media (min-width: 768px) {
+  .comfort-food-img {
+    -o-object-position: 50% 20%;
+    object-position: 50% 20%;
+  }
+}
+
 .menu-card__label {
   font-size: 1.1rem;
   font-weight: 700;
