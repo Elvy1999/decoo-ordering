@@ -1382,11 +1382,11 @@ const initCloverPayment = () => {
     cloverInstance = new window.Clover(config.publicKey);
 
     const isMobilePaymentViewport = window.matchMedia("(max-width: 520px)").matches;
-    const defaultFieldFontSize = "22px";
-    const defaultFieldLineHeight = "24px";
+    const defaultFieldFontSize = isMobilePaymentViewport ? "26px" : "24px";
+    const defaultFieldLineHeight = isMobilePaymentViewport ? "28px" : "26px";
     const paymentFieldPadding = "10px 10px 6px";
-    const mobileCardNumberFontSize = isMobilePaymentViewport ? "24px" : defaultFieldFontSize;
-    const mobileCardNumberLineHeight = isMobilePaymentViewport ? "26px" : defaultFieldLineHeight;
+    const mobileCardNumberFontSize = isMobilePaymentViewport ? "28px" : defaultFieldFontSize;
+    const mobileCardNumberLineHeight = isMobilePaymentViewport ? "30px" : defaultFieldLineHeight;
 
     const elementConfig = {
       styles: {
