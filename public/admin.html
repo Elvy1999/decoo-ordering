@@ -624,7 +624,7 @@
           <div class="brand">Panel Decoo</div>
           <div class="helper">Administra configuracion, menu y pedidos recientes.</div>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px">
           <a class="btn btn--ghost btn--small" href="#promo-codes">Codigos promocionales</a>
           <button class="btn btn--ghost" id="logout-btn" type="button">Cerrar sesion</button>
         </div>
@@ -651,7 +651,9 @@
               <input id="stats-date" type="date" />
             </div>
           </div>
-          <p class="helper sales-summary-note">Week and month are calculated relative to the selected date.</p>
+          <p class="helper sales-summary-note">
+            Week and month are calculated relative to the selected date.
+          </p>
           <div class="sales-stats-grid">
             <article class="sales-stat">
               <h3>Today</h3>
@@ -679,7 +681,8 @@
             </article>
             <article class="sales-stat">
               <h3>This Month</h3>
-              <p class="sales-stat__meta">Month to date</p>
+              <p class="sales-stat__meta">Full month</p>
+              <p class="sales-stat__meta" id="stats-month-range">-</p>
               <p class="sales-stat__metric">
                 <span>Orders</span>
                 <strong id="stats-month-orders">0</strong>

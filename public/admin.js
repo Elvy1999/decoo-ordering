@@ -62,6 +62,7 @@ const statsWeekOrders = document.getElementById("stats-week-orders");
 const statsWeekRevenue = document.getElementById("stats-week-revenue");
 const statsMonthOrders = document.getElementById("stats-month-orders");
 const statsMonthRevenue = document.getElementById("stats-month-revenue");
+const statsMonthRange = document.getElementById("stats-month-range");
 const statsLast7Chart = document.getElementById("stats-last-7-chart");
 
 let menuItems = [];
@@ -267,6 +268,7 @@ const normalizeLast7Days = (rows, selectedDateKey) => {
 const normalizeSalesSummary = (payload, selectedDateKey) => {
   const todayDate = parseIsoDateKey(payload?.today?.date) ? payload.today.date : selectedDateKey;
   return {
+    selectedDateKey,
     today: {
       date: todayDate,
       ordersCount: toNonNegativeInt(payload?.today?.ordersCount),
@@ -294,6 +296,32 @@ const formatStatsDateLabel = (dateKey) => {
     year: "numeric",
     timeZone: "UTC",
   });
+};
+
+const parseLocalDateKey = (dateKey) => {
+  if (!ISO_DATE_KEY_RE.test(String(dateKey || ""))) return null;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatMonthRangeLabel = (dateKey) => {
+  const selectedDate = parseLocalDateKey(dateKey);
+  if (!selectedDate) return "-";
+  const year = selectedDate.getFullYear();
+  const monthIndex = selectedDate.getMonth();
+  const monthStart = new Date(year, monthIndex, 1);
+  const monthEnd = new Date(year, monthIndex + 1, 0);
+  const startLabel = monthStart.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  const endLabel = monthEnd.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  return `${startLabel} - ${endLabel}`;
 };
 
 const formatChartDateShort = (dateKey) => {
@@ -372,6 +400,7 @@ const renderSalesSummary = (summary) => {
 
   statsMonthOrders.textContent = String(toNonNegativeInt(summary.monthToDate.ordersCount));
   statsMonthRevenue.textContent = formatMoney(summary.monthToDate.revenueCents);
+  if (statsMonthRange) statsMonthRange.textContent = formatMonthRangeLabel(summary.selectedDateKey);
 
   renderLast7DaysChart(summary.last7Days);
 };

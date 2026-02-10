@@ -15,14 +15,19 @@ const toUtcMidnight = (dateKey) => {
   return toUtcDateKey(parsed) === dateKey ? parsed : null;
 };
 
+const parseLocalDateKey = (dateKey) => {
+  if (!ISO_DATE_RE.test(dateKey)) return null;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const parsed = new Date(year, month - 1, day, 0, 0, 0, 0);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const getStartOfUtcWeekMonday = (date) => {
   const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const dayOfWeek = utcDate.getUTCDay();
   const distanceFromMonday = (dayOfWeek + 6) % 7;
   return addUtcDays(utcDate, -distanceFromMonday);
 };
-
-const getStartOfUtcMonth = (date) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 
 const toCents = (value) => {
   const num = Number(value);
@@ -50,8 +55,23 @@ export default async function handler(req, res) {
   const selectedDateKey = toUtcDateKey(selectedDate);
   const endExclusive = addUtcDays(selectedDate, 1);
 
+  const selectedLocalDate =
+    parseLocalDateKey(String(req.query?.date || "").trim()) || parseLocalDateKey(selectedDateKey);
+  if (!selectedLocalDate) {
+    return fail(res, 400, "INVALID_DATE", "Use date in YYYY-MM-DD format.");
+  }
+
   const weekStart = getStartOfUtcWeekMonday(selectedDate);
-  const monthStart = getStartOfUtcMonth(selectedDate);
+  const monthStart = new Date(selectedLocalDate.getFullYear(), selectedLocalDate.getMonth(), 1, 0, 0, 0, 0);
+  const nextMonthStart = new Date(
+    selectedLocalDate.getFullYear(),
+    selectedLocalDate.getMonth() + 1,
+    1,
+    0,
+    0,
+    0,
+    0,
+  );
   const last7Start = addUtcDays(selectedDate, -6);
 
   const queryStartMs = Math.min(
@@ -61,6 +81,8 @@ export default async function handler(req, res) {
     last7Start.getTime(),
   );
   const queryStart = new Date(queryStartMs);
+  const queryEndExclusiveMs = Math.max(endExclusive.getTime(), nextMonthStart.getTime());
+  const queryEndExclusive = new Date(queryEndExclusiveMs);
 
   const today = { date: selectedDateKey, ordersCount: 0, revenueCents: 0 };
   const weekToDate = { ordersCount: 0, revenueCents: 0 };
@@ -79,6 +101,7 @@ export default async function handler(req, res) {
   const selectedStartMs = selectedDate.getTime();
   const weekStartMs = weekStart.getTime();
   const monthStartMs = monthStart.getTime();
+  const monthEndExclusiveMs = nextMonthStart.getTime();
   const last7StartMs = last7Start.getTime();
   const endExclusiveMs = endExclusive.getTime();
 
@@ -89,7 +112,7 @@ export default async function handler(req, res) {
       .select("created_at,total_cents")
       .eq("payment_status", "paid")
       .gte("created_at", queryStart.toISOString())
-      .lt("created_at", endExclusive.toISOString());
+      .lt("created_at", queryEndExclusive.toISOString());
 
     if (error) throw error;
 
@@ -101,22 +124,22 @@ export default async function handler(req, res) {
       const revenueCents = toCents(order?.total_cents);
       const dateKey = toUtcDateKey(new Date(createdAtMs));
 
-      if (createdAtMs >= selectedStartMs) {
+      if (createdAtMs >= selectedStartMs && createdAtMs < endExclusiveMs) {
         today.ordersCount += 1;
         today.revenueCents += revenueCents;
       }
 
-      if (createdAtMs >= weekStartMs) {
+      if (createdAtMs >= weekStartMs && createdAtMs < endExclusiveMs) {
         weekToDate.ordersCount += 1;
         weekToDate.revenueCents += revenueCents;
       }
 
-      if (createdAtMs >= monthStartMs) {
+      if (createdAtMs >= monthStartMs && createdAtMs < monthEndExclusiveMs) {
         monthToDate.ordersCount += 1;
         monthToDate.revenueCents += revenueCents;
       }
 
-      if (createdAtMs >= last7StartMs) {
+      if (createdAtMs >= last7StartMs && createdAtMs < endExclusiveMs) {
         const bucket = bucketByDate.get(dateKey);
         if (!bucket) return;
         bucket.ordersCount += 1;

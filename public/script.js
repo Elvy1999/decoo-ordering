@@ -19,7 +19,7 @@ const CATEGORY_MAP = {
 const MENU_NAME_FILTER = {
   quipes: "Quipe",
   alcapurrias: "Alcapurria",
-  sorullitos: ["Sorullito", "Sorullitos", "Sorrulito", "Sorrulitos"],
+  sorullitos: ["Sorullito", "Sorullitos", "Sorrulito", "Sorrulitos", "Sorrultio"],
   tresLeches: "Tres Leches",
 };
 
@@ -399,7 +399,9 @@ const matchesItem = (item, target) => {
 
 const isSorullitoName = (name) => {
   const n = normalizeName(name);
-  return n === "sorullito" || n === "sorullitos" || n === "sorrulito" || n === "sorrulitos";
+  return (
+    n === "sorullito" || n === "sorullitos" || n === "sorrulito" || n === "sorrulitos" || n === "sorrultio"
+  );
 };
 
 const getSortedItemsForMenuKey = (key) => {
@@ -1864,6 +1866,7 @@ document.addEventListener("click", async (event) => {
       clearCart();
       closeModal(checkoutModal);
       openModal(confirmationModal);
+      window.history.pushState({}, "", "/thank-you");
       pendingOrder = null;
       resetPaymentUI();
     } catch (error) {
