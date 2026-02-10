@@ -1357,6 +1357,9 @@ p {
   .menu-card img {
     height: 140px;
   }
+  .comfort-food-img {
+    height: 160px;
+  }
   .hours__list li {
     flex-direction: column;
     align-items: flex-start;
