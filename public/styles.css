@@ -1462,6 +1462,7 @@ p {
   #quipes-modal .modal__content,
   #pinchos-modal .modal__content,
   #tres-leches-modal .modal__content,
+  #comfort-food-modal .modal__content,
   #juices-modal .modal__content,
   #beverages-modal .modal__content {
     padding-bottom: calc(28px + env(safe-area-inset-bottom));
