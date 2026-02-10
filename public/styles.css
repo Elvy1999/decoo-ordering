@@ -1359,6 +1359,8 @@ p {
     object-fit: cover;
     -o-object-position: 50% 30%;
     object-position: 50% 30%;
+    transform: scale(0.93);
+    transform-origin: center;
   }
   .hours__list li {
     flex-direction: column;

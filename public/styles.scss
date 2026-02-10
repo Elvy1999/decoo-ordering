@@ -1239,6 +1239,8 @@ a {
     height: 140px;
     object-fit: cover;
     object-position: 50% 30%;
+    transform: scale(0.93);
+    transform-origin: center;
   }
 
   .hours__list li {
