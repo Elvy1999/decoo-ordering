@@ -1357,8 +1357,8 @@ p {
     height: 140px;
     -o-object-fit: cover;
     object-fit: cover;
-    -o-object-position: 50% 18%;
-    object-position: 50% 18%;
+    -o-object-position: 50% 30%;
+    object-position: 50% 30%;
   }
   .hours__list li {
     flex-direction: column;
