@@ -1351,12 +1351,11 @@ p {
     height: 140px;
   }
   .menu-card img.comfort-food-img {
-    height: 220px;
-    -o-object-fit: contain;
-    object-fit: contain;
-    -o-object-position: top center;
-    object-position: top center;
-    background: #ffffff;
+    height: 140px;
+    -o-object-fit: cover;
+    object-fit: cover;
+    -o-object-position: 50% 18%;
+    object-position: 50% 18%;
   }
   .hours__list li {
     flex-direction: column;

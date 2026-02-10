@@ -7,7 +7,7 @@ let menuItems = [];
 const CATEGORY_MAP = {
   empanadas: "Empanadas",
   pinchos: "Grill",
-  comfort_food: "Comfort Food",
+  comfort_food: "Comfort Foods",
   quipes: "Fried",
   alcapurrias: "Fried",
   sorullitos: "Fried",

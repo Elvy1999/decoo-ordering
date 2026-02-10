@@ -1233,10 +1233,9 @@ a {
   }
 
   .menu-card img.comfort-food-img {
-    height: 220px;
-    object-fit: contain;
-    object-position: top center;
-    background: $color-white;
+    height: 140px;
+    object-fit: cover;
+    object-position: 50% 18%;
   }
 
   .hours__list li {
