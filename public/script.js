@@ -6,14 +6,14 @@ let menuItems = [];
 
 const CATEGORY_MAP = {
   empanadas: "Empanadas",
-  juices: "Juices",
-  sodas: "Sodas",
   pinchos: "Grill",
+  comfort_food: "Comfort Food",
   quipes: "Fried",
   alcapurrias: "Fried",
   sorullitos: "Fried",
   tresLeches: "Desserts",
-  comfort_food: "Comfort Food",
+  juices: "Juices",
+  sodas: "Sodas",
 };
 
 const MENU_NAME_FILTER = {
@@ -33,6 +33,8 @@ const normalizeName = (value) =>
 const normalizeCategory = (value) =>
   String(value || "")
     .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
     .toLowerCase();
 const toFiniteNumber = (value) => {
   const n = Number(value);
