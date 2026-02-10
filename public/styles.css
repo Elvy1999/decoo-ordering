@@ -1576,7 +1576,8 @@ p {
 
 @media (min-width: 1200px) {
   .menu-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    max-width: 1400px;
+    grid-template-columns: repeat(6, minmax(150px, 1fr));
     gap: 16px;
   }
   .hero__tagline {

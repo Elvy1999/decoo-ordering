@@ -432,6 +432,17 @@ const getSortedItemsForMenuKey = (key) => {
     });
   }
 
+  if (key === "sorullitos") {
+    // Ensure Sorullito/Sorullitos show in the Sorullitos modal regardless of category.
+    const sorullitoItems = menuItems.filter((item) => isSorullitoName(item.name));
+    const seenIds = new Set(items.map((item) => item.id));
+    sorullitoItems.forEach((item) => {
+      if (seenIds.has(item.id)) return;
+      seenIds.add(item.id);
+      items.push(item);
+    });
+  }
+
   const requiredName = MENU_NAME_FILTER[key];
   if (requiredName) {
     const nameKeys = Array.isArray(requiredName)
