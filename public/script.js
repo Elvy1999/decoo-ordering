@@ -1300,7 +1300,7 @@ const buildPaymentFieldsMarkup = () => {
 
         <div class="pay-grid">
           <div class="pay-col">
-            <label class="pay-label" for="clover-expiry">Expiry</label>
+            <label class="pay-label" for="clover-expiry">Expiration</label>
             <div id="clover-expiry" class="pay-field pay-field--iframe"></div>
             <div class="input-errors" id="clover-expiry-errors" role="alert"></div>
           </div>
