@@ -411,8 +411,8 @@ const getSortedItemsForMenuKey = (key) => {
   const category = CATEGORY_MAP[key];
   if (!category) return [];
 
-  const categoryKey = normalizeCategory(category);
-  let items = menuItems.filter((item) => normalizeCategory(item.category) === categoryKey);
+  const categoryKeys = new Set([normalizeCategory(category), normalizeCategory(key)]);
+  let items = menuItems.filter((item) => categoryKeys.has(normalizeCategory(item.category)));
 
   const requiredName = MENU_NAME_FILTER[key];
   if (requiredName) {
