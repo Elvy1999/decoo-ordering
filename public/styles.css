@@ -333,20 +333,9 @@ a {
   object-position: center 30%;
 }
 
-.comfort-food-img {
-  -o-object-fit: contain;
-  object-fit: contain;
-  -o-object-position: center;
-  object-position: center;
-}
-
-@media (min-width: 768px) {
-  .comfort-food-img {
-    -o-object-fit: contain;
-    object-fit: contain;
-    -o-object-position: center;
-    object-position: center;
-  }
+.menu-card img.comfort-food-img {
+  -o-object-position: 50% 20%;
+  object-position: 50% 20%;
 }
 
 .menu-card__label {
@@ -1361,8 +1350,13 @@ p {
   .menu-card img {
     height: 140px;
   }
-  .comfort-food-img {
-    height: 160px;
+  .menu-card img.comfort-food-img {
+    height: 220px;
+    -o-object-fit: contain;
+    object-fit: contain;
+    -o-object-position: top center;
+    object-position: top center;
+    background: #ffffff;
   }
   .hours__list li {
     flex-direction: column;

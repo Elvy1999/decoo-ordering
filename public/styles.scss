@@ -340,16 +340,8 @@ a {
   object-position: center 30%;
 }
 
-.comfort-food-img {
-  object-fit: contain;
-  object-position: center;
-}
-
-@media (min-width: 768px) {
-  .comfort-food-img {
-    object-fit: contain;
-    object-position: center;
-  }
+.menu-card img.comfort-food-img {
+  object-position: 50% 20%;
 }
 
 .menu-card__label {
@@ -1240,8 +1232,11 @@ a {
     height: 140px;
   }
 
-  .comfort-food-img {
-    height: 160px;
+  .menu-card img.comfort-food-img {
+    height: 220px;
+    object-fit: contain;
+    object-position: top center;
+    background: $color-white;
   }
 
   .hours__list li {
