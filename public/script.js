@@ -1381,7 +1381,7 @@ const initCloverPayment = () => {
 
     cloverInstance = new window.Clover(config.publicKey);
 
-    const isMobilePaymentViewport = window.matchMedia("(max-width: 520px)").matches;
+    const isMobilePaymentViewport = window.matchMedia("(max-width: 768px)").matches;
     const defaultFieldFontSize = isMobilePaymentViewport ? "26px" : "24px";
     const defaultFieldLineHeight = isMobilePaymentViewport ? "28px" : "26px";
     const paymentFieldPadding = "10px 10px 6px";
@@ -1459,18 +1459,26 @@ const initCloverPayment = () => {
     cardCvv.mount("#clover-cvv");
     cardPostal.mount("#clover-postal-code");
 
-    if (!useLegacyCreateStyles && isMobilePaymentViewport && typeof cardNumber.update === "function") {
-      try {
-        cardNumber.update({
-          styles: {
-            input: {
-              fontSize: mobileCardNumberFontSize,
-              lineHeight: mobileCardNumberLineHeight,
-              padding: paymentFieldPadding,
+    if (!useLegacyCreateStyles) {
+      const updateFieldStyles = (field, fontSize, lineHeight) => {
+        if (!field || typeof field.update !== "function") return;
+        try {
+          field.update({
+            styles: {
+              input: {
+                fontSize,
+                lineHeight,
+                padding: paymentFieldPadding,
+              },
             },
-          },
-        });
-      } catch (_error) {}
+          });
+        } catch (_error) {}
+      };
+
+      updateFieldStyles(cardNumber, mobileCardNumberFontSize, mobileCardNumberLineHeight);
+      updateFieldStyles(cardExpiry, defaultFieldFontSize, defaultFieldLineHeight);
+      updateFieldStyles(cardCvv, defaultFieldFontSize, defaultFieldLineHeight);
+      updateFieldStyles(cardPostal, defaultFieldFontSize, defaultFieldLineHeight);
     }
 
     cloverFieldRefs = {
