@@ -2,6 +2,7 @@ const CART_KEY = "decoo_cart";
 const LEGACY_FREE_JUICE_PROMO_CART_KEY = "__promo_free_juice__";
 const FREE_JUICE_PROMO_CART_KEY_PREFIX = "__promo_free_juice__:";
 const FREE_JUICE_PROMO_TYPE = "FREE_JUICE";
+const FREE_JUICE_POPUP_DELAY_MS = 5000;
 
 let appSettings = null;
 let itemById = {};
@@ -124,7 +125,7 @@ const normalizeSettings = (settings) => ({
   processingFee: Number(settings?.processing_fee_cents || 0) / 100,
   deliveryFee: Number(settings?.delivery_fee_cents || 0) / 100,
   deliveryMinTotal: Number(settings?.delivery_min_total_cents || 0) / 100,
-  freeJuiceEnabled: Boolean(settings?.free_juice_enabled),
+  freeJuiceEnabled: settings?.free_juice_enabled === true,
   freeJuiceMinSubtotalCents: Math.max(0, Math.round(Number(settings?.free_juice_min_subtotal_cents || 0))),
 });
 
@@ -1038,7 +1039,7 @@ const scrollToDrinksSection = () => {
 };
 
 const clearFreeJuicePopupTimer = () => {
-  if (!freeJuicePopupTimer) return;
+  if (freeJuicePopupTimer === null) return;
   clearTimeout(freeJuicePopupTimer);
   freeJuicePopupTimer = null;
 };
@@ -1074,7 +1075,7 @@ const scheduleFreeJuicePopup = () => {
   freeJuicePopupTimer = setTimeout(() => {
     freeJuicePopupTimer = null;
     showFreeJuicePopup();
-  }, 5000);
+  }, FREE_JUICE_POPUP_DELAY_MS);
 };
 
 function isCheckoutOpen() {
@@ -1679,11 +1680,9 @@ const initCloverPayment = () => {
     cloverInstance = new window.Clover(config.publicKey);
 
     const isMobilePaymentViewport = window.matchMedia("(max-width: 768px)").matches;
-    const defaultFieldFontSize = isMobilePaymentViewport ? "26px" : "24px";
-    const defaultFieldLineHeight = isMobilePaymentViewport ? "28px" : "26px";
+    const defaultFieldFontSize = isMobilePaymentViewport ? "18px" : "24px";
+    const defaultFieldLineHeight = isMobilePaymentViewport ? "22px" : "26px";
     const paymentFieldPadding = "10px 10px 6px";
-    const mobileCardNumberFontSize = isMobilePaymentViewport ? "28px" : defaultFieldFontSize;
-    const mobileCardNumberLineHeight = isMobilePaymentViewport ? "30px" : defaultFieldLineHeight;
 
     const elementConfig = {
       styles: {
@@ -1696,6 +1695,8 @@ const initCloverPayment = () => {
         },
         "::placeholder": {
           color: "#aaa",
+          fontSize: defaultFieldFontSize,
+          lineHeight: defaultFieldLineHeight,
         },
       },
     };
@@ -1720,22 +1721,11 @@ const initCloverPayment = () => {
             },
             placeholder: {
               color: "#aaa",
+              fontSize: defaultFieldFontSize,
+              lineHeight: defaultFieldLineHeight,
             },
             invalid: {
               color: "#8e1c1c",
-            },
-          },
-        }
-      : undefined;
-
-    const legacyCardNumberStyleOptions = useLegacyCreateStyles
-      ? {
-          styles: {
-            ...legacyStyleOptions.styles,
-            base: {
-              ...legacyStyleOptions.styles.base,
-              fontSize: mobileCardNumberFontSize,
-              lineHeight: mobileCardNumberLineHeight,
             },
           },
         }
@@ -1746,7 +1736,7 @@ const initCloverPayment = () => {
         ? cloverElements.create(fieldType, fieldOptions || legacyStyleOptions)
         : cloverElements.create(fieldType);
 
-    const cardNumber = createField("CARD_NUMBER", legacyCardNumberStyleOptions);
+    const cardNumber = createField("CARD_NUMBER");
     const cardExpiry = createField("CARD_DATE");
     const cardCvv = createField("CARD_CVV");
     const cardPostal = createField("CARD_POSTAL_CODE");
@@ -1767,12 +1757,16 @@ const initCloverPayment = () => {
                 lineHeight,
                 padding: paymentFieldPadding,
               },
+              "::placeholder": {
+                fontSize,
+                lineHeight,
+              },
             },
           });
         } catch (_error) {}
       };
 
-      updateFieldStyles(cardNumber, mobileCardNumberFontSize, mobileCardNumberLineHeight);
+      updateFieldStyles(cardNumber, defaultFieldFontSize, defaultFieldLineHeight);
       updateFieldStyles(cardExpiry, defaultFieldFontSize, defaultFieldLineHeight);
       updateFieldStyles(cardCvv, defaultFieldFontSize, defaultFieldLineHeight);
       updateFieldStyles(cardPostal, defaultFieldFontSize, defaultFieldLineHeight);

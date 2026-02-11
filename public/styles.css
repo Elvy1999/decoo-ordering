@@ -994,7 +994,7 @@ p {
   }
 
   .payment .pay-field--input {
-    font-size: 22px;
+    font-size: 18px;
     line-height: 1.3;
   }
 }
@@ -1670,6 +1670,11 @@ p {
 }
 
 @media (max-width: 768px) {
+  .payment .pay-field--input,
+  .payment .pay-field--input::placeholder {
+    font-size: 18px;
+  }
+
   .modal.is-open {
     padding-bottom: calc(14px + env(safe-area-inset-bottom));
   }
