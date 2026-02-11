@@ -36,7 +36,6 @@ const settingsForm = document.getElementById("settings-form");
 const settingsSaveBtn = document.getElementById("settings-save");
 const freeJuiceEnabledInput = document.getElementById("free_juice_enabled");
 const freeJuiceMinSubtotalInput = document.getElementById("free_juice_min_subtotal_dollars");
-const freeJuiceItemSelect = document.getElementById("free_juice_item_id");
 
 const menuSearch = document.getElementById("menu-search");
 const menuGroups = document.getElementById("menu-groups");
@@ -225,56 +224,6 @@ const toNonNegativeInt = (value) => {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
   return Math.max(0, Math.round(num));
-};
-
-const normalizeAdminText = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase();
-
-const isNaturalJuiceMenuItem = (item) => {
-  const category = normalizeAdminText(item?.category);
-  const name = normalizeAdminText(item?.name);
-  const looksJuice = category.includes("juice") || category.includes("jugo") || name.includes("juice") || name.includes("jugo");
-  const looksSoda =
-    category.includes("soda") ||
-    name.includes("soda") ||
-    name.includes("coke") ||
-    name.includes("sprite") ||
-    name.includes("pepsi");
-  return looksJuice && !looksSoda;
-};
-
-const getNaturalJuiceItems = () =>
-  menuItems
-    .filter((item) => isNaturalJuiceMenuItem(item))
-    .sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
-
-const renderFreeJuiceItemOptions = (selectedId) => {
-  if (!freeJuiceItemSelect) return;
-  const selectedValue = String(selectedId ?? "").trim();
-  const naturalJuiceItems = getNaturalJuiceItems();
-  const optionMarkup = ['<option value="">Select a natural juice</option>'];
-
-  naturalJuiceItems.forEach((item) => {
-    const id = Number(item?.id);
-    if (!Number.isInteger(id) || id <= 0) return;
-    const name = escapeHtml(item?.name || `Item ${id}`);
-    const price = formatMoney(item?.price_cents);
-    optionMarkup.push(`<option value="${id}">${name} (${price})</option>`);
-  });
-
-  const hasSelectedValue = selectedValue && naturalJuiceItems.some((item) => String(item?.id) === selectedValue);
-  let hasFallbackSelectedValue = false;
-  if (selectedValue && !hasSelectedValue) {
-    const fallbackItem = menuItems.find((item) => String(item?.id) === selectedValue);
-    const fallbackName = fallbackItem?.name ? `${fallbackItem.name} (not natural juice)` : `Item ${selectedValue}`;
-    optionMarkup.push(`<option value="${escapeHtml(selectedValue)}">${escapeHtml(fallbackName)}</option>`);
-    hasFallbackSelectedValue = true;
-  }
-
-  freeJuiceItemSelect.innerHTML = optionMarkup.join("");
-  freeJuiceItemSelect.value = hasSelectedValue || hasFallbackSelectedValue || !selectedValue ? selectedValue : "";
 };
 
 const getSelectedStatsDate = () => {
@@ -498,7 +447,6 @@ const fillSettingsForm = (settings) => {
     const freeMinCents = Number(settings?.free_juice_min_subtotal_cents || 0);
     freeJuiceMinSubtotalInput.value = centsToDollars(freeMinCents);
   }
-  renderFreeJuiceItemOptions(settings?.free_juice_item_id);
 };
 
 const loadSettings = async () => {
@@ -521,15 +469,10 @@ const saveSettings = async (event) => {
     const freeJuiceEnabled = Boolean(freeJuiceEnabledInput?.checked);
     const freeJuiceMinDollars = Number(freeJuiceMinSubtotalInput?.value || 0);
     const freeJuiceMinSubtotalCents = Number.isFinite(freeJuiceMinDollars) ? dollarsToCents(freeJuiceMinDollars) : 0;
-    const freeJuiceItemRawValue = String(freeJuiceItemSelect?.value || "").trim();
-    const freeJuiceItemId = freeJuiceItemRawValue ? Number(freeJuiceItemRawValue) : null;
 
     if (freeJuiceEnabled) {
       if (!Number.isFinite(freeJuiceMinDollars) || freeJuiceMinSubtotalCents <= 0) {
         throw new Error("Minimum Order Amount ($) is required when free juice promo is enabled.");
-      }
-      if (!Number.isInteger(freeJuiceItemId) || freeJuiceItemId <= 0) {
-        throw new Error("Select Free Juice Item is required when free juice promo is enabled.");
       }
     }
 
@@ -542,7 +485,6 @@ const saveSettings = async (event) => {
       delivery_min_total_cents: Number(settingsForm.delivery_min_total_cents.value || 0),
       free_juice_enabled: freeJuiceEnabled,
       free_juice_min_subtotal_cents: Math.max(0, freeJuiceMinSubtotalCents),
-      free_juice_item_id: Number.isInteger(freeJuiceItemId) && freeJuiceItemId > 0 ? freeJuiceItemId : null,
     };
     const updated = await apiFetch(ADMIN_SETTINGS_PATH, { method: "PATCH", body: payload });
     fillSettingsForm(updated);
@@ -560,7 +502,6 @@ const loadMenu = async () => {
   try {
     menuItems = await apiFetch(ADMIN_MENU_PATH);
     renderMenu();
-    renderFreeJuiceItemOptions(latestSettings?.free_juice_item_id);
   } catch (error) {
     showToast(error.message || "No se pudo cargar el menu.", "error");
   }
@@ -736,7 +677,6 @@ const buildMenuItemCard = (item) => {
       const updated = await apiFetch(ADMIN_MENU_ITEM_PATH, { method: "PATCH", body: payload });
       menuItems = menuItems.map((row) => (row.id === updated.id ? updated : row));
       renderMenu();
-      renderFreeJuiceItemOptions(latestSettings?.free_juice_item_id);
       showToast("Articulo del menu actualizado.");
     } catch (error) {
       showToast(error.message || "No se pudo actualizar el articulo del menu.", "error");

@@ -48,23 +48,14 @@ const toCents = (value) => {
   return Math.round(numberValue);
 };
 
-const normalizeText = (value) =>
+const normalizeCategory = (value) =>
   String(value || "")
     .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
     .toLowerCase();
 
-const isNaturalJuiceMenuItem = (menuItem) => {
-  const category = normalizeText(menuItem?.category);
-  const name = normalizeText(menuItem?.name);
-  const looksJuice = category.includes("juice") || category.includes("jugo") || name.includes("juice") || name.includes("jugo");
-  const looksSoda =
-    category.includes("soda") ||
-    name.includes("soda") ||
-    name.includes("coke") ||
-    name.includes("sprite") ||
-    name.includes("pepsi");
-  return looksJuice && !looksSoda;
-};
+const isJuicesCategoryMenuItem = (menuItem) => normalizeCategory(menuItem?.category) === "juices";
 
 const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN;
 const RESTAURANT_LAT = Number(process.env.RESTAURANT_LAT);
@@ -117,7 +108,7 @@ const fetchSettings = async () => {
   const { data, error } = await supabase
     .from("settings")
     .select(
-      "ordering_enabled,delivery_enabled,delivery_radius_miles,processing_fee_cents,delivery_fee_cents,delivery_min_total_cents,free_juice_enabled,free_juice_min_subtotal_cents,free_juice_item_id",
+      "ordering_enabled,delivery_enabled,delivery_radius_miles,processing_fee_cents,delivery_fee_cents,delivery_min_total_cents,free_juice_enabled,free_juice_min_subtotal_cents",
     )
     .eq("id", 1)
     .single();
@@ -287,6 +278,7 @@ const validateOrderPayload = (payload) => {
 
   const normalizedItems = new Map();
   let clientPromoFreeItem = null;
+  let promoFreeItemCount = 0;
   let totalQty = 0;
 
   for (const item of payload.items) {
@@ -312,6 +304,16 @@ const validateOrderPayload = (payload) => {
     if (isPromoFreeItem) {
       if (promoType && promoType !== FREE_JUICE_PROMO_TYPE) {
         return { error: "Unsupported promo item type." };
+      }
+      promoFreeItemCount += 1;
+      if (promoFreeItemCount > 1) {
+        return { error: "Only one free juice promo item is allowed per order." };
+      }
+      const promoQtyRaw =
+        item.qty ?? item.quantity ?? item.qtyValue ?? item.quantityValue ?? item.count ?? item.item_qty ?? 1;
+      const promoQty = Number(promoQtyRaw);
+      if (!Number.isFinite(promoQty) || Math.floor(promoQty) !== 1) {
+        return { error: "Free juice promo item quantity must be exactly 1." };
       }
       if (!clientPromoFreeItem) {
         clientPromoFreeItem = {
@@ -420,39 +422,38 @@ app.post("/api/orders", async (req, res) => {
     let freeJuicePromoApplied = false;
     const freeJuiceEnabled = settings?.free_juice_enabled === true;
     const freeJuiceMinSubtotalCents = Math.max(0, toCents(settings?.free_juice_min_subtotal_cents));
-    const configuredFreeJuiceItemId = Number(settings?.free_juice_item_id);
-    const hasValidPromoConfig =
-      freeJuiceEnabled &&
-      freeJuiceMinSubtotalCents > 0 &&
-      Number.isInteger(configuredFreeJuiceItemId) &&
-      configuredFreeJuiceItemId > 0;
+    const freeJuiceEligible = freeJuiceEnabled && freeJuiceMinSubtotalCents > 0 && subtotalCents >= freeJuiceMinSubtotalCents;
 
-    let freeJuiceEligible = hasValidPromoConfig && subtotalCents >= freeJuiceMinSubtotalCents;
     if (freeJuiceEligible) {
-      let promoMenuItem = menuById.get(configuredFreeJuiceItemId) || null;
+      if (!clientPromoFreeItem) {
+        return res.status(400).json({ ok: false, error: "Please select your free juice." });
+      }
+
+      const promoMenuItemId = Number(clientPromoFreeItem.id);
+      if (!Number.isInteger(promoMenuItemId) || promoMenuItemId <= 0) {
+        return res.status(400).json({ ok: false, error: "Invalid free juice selection." });
+      }
+
+      let promoMenuItem = menuById.get(promoMenuItemId) || null;
       if (!promoMenuItem) {
         const { data: promoItemData, error: promoItemError } = await supabase
           .from("menu_items")
           .select("id,name,category,is_active,in_stock")
-          .eq("id", configuredFreeJuiceItemId)
+          .eq("id", promoMenuItemId)
           .maybeSingle();
         if (promoItemError) throw promoItemError;
         promoMenuItem = promoItemData || null;
       }
 
-      if (
-        !promoMenuItem ||
-        !promoMenuItem.is_active ||
-        !promoMenuItem.in_stock ||
-        !isNaturalJuiceMenuItem(promoMenuItem)
-      ) {
-        freeJuiceEligible = false;
+      if (!promoMenuItem || !promoMenuItem.is_active || !promoMenuItem.in_stock || !isJuicesCategoryMenuItem(promoMenuItem)) {
+        return res.status(400).json({
+          ok: false,
+          error: "Selected free juice must be an active in-stock menu item in category 'Juices'.",
+        });
       }
-    }
 
-    if (freeJuiceEligible) {
       orderItems.push({
-        item_name: "Free Natural Juice",
+        item_name: `${promoMenuItem.name} (Free Natural Juice Promo)`,
         unit_price_cents: 0,
         qty: 1,
         line_total_cents: 0,
@@ -463,10 +464,7 @@ app.post("/api/orders", async (req, res) => {
         sent_item_id: Number(clientPromoFreeItem.id) || null,
         subtotal_cents: subtotalCents,
         configured_min_subtotal_cents: freeJuiceMinSubtotalCents,
-        configured_item_id:
-          Number.isInteger(configuredFreeJuiceItemId) && configuredFreeJuiceItemId > 0
-            ? configuredFreeJuiceItemId
-            : null,
+        promo_enabled: freeJuiceEnabled,
       });
     }
 

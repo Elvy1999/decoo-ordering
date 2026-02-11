@@ -364,6 +364,14 @@
             <div class="promo__msg" data-promo-msg hidden></div>
           </div>
 
+          <div class="field" data-free-juice-picker hidden>
+            <label for="free-juice-select">Choose your free juice</label>
+            <select id="free-juice-select" data-free-juice-select>
+              <option value="">Select a juice</option>
+            </select>
+            <small class="field__hint" data-free-juice-picker-help></small>
+          </div>
+
           <div class="totals" data-checkout-totals>
             <div class="totals__row"><span>Subtotal</span><span data-subtotal>$0.00</span></div>
             <div class="totals__row"><span>Processing fee</span><span data-fee>$0.00</span></div>
@@ -461,11 +469,11 @@
           x
         </button>
         <div class="promo-popup__media">
-          <img src="/images/juices.jpg" alt="Natural juice selection" />
+          <img src="/images/juices.png" alt="Natural juice selection" />
         </div>
         <div class="promo-popup__body">
           <h3 id="free-juice-popup-title">Free Natural Juice Promo</h3>
-          <p data-free-juice-popup-copy>Free Natural Juice with minimum order of $0.00!</p>
+          <p data-free-juice-popup-copy>Free Natural Juice with minimum order of $0.00+ (Choose any juice)</p>
           <button type="button" class="btn btn--primary promo-popup__cta" data-free-juice-popup-order>
             Order Now
           </button>

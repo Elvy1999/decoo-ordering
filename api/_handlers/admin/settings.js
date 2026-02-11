@@ -2,26 +2,9 @@ import { ok, fail, methodNotAllowed, supabaseServerClient, fetchSettings, SETTIN
 import { requireAdmin } from "./auth.js";
 
 const SETTINGS_FIELDS =
-  "ordering_enabled,delivery_enabled,delivery_radius_miles,processing_fee_cents,delivery_fee_cents,delivery_min_total_cents,free_juice_enabled,free_juice_min_subtotal_cents,free_juice_item_id";
+  "ordering_enabled,delivery_enabled,delivery_radius_miles,processing_fee_cents,delivery_fee_cents,delivery_min_total_cents,free_juice_enabled,free_juice_min_subtotal_cents";
 
 const isFiniteNumber = (value) => Number.isFinite(Number(value));
-const normalizeText = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase();
-
-const isNaturalJuiceMenuItem = (menuItem) => {
-  const category = normalizeText(menuItem?.category);
-  const name = normalizeText(menuItem?.name);
-  const looksJuice = category.includes("juice") || category.includes("jugo") || name.includes("juice") || name.includes("jugo");
-  const looksSoda =
-    category.includes("soda") ||
-    name.includes("soda") ||
-    name.includes("coke") ||
-    name.includes("sprite") ||
-    name.includes("pepsi");
-  return looksJuice && !looksSoda;
-};
 
 export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
@@ -86,17 +69,6 @@ export default async function handler(req, res) {
     update.free_juice_enabled = body.free_juice_enabled;
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, "free_juice_item_id")) {
-    const rawValue = body.free_juice_item_id;
-    if (rawValue === "" || rawValue === null) {
-      update.free_juice_item_id = null;
-    } else if (!isFiniteNumber(rawValue) || !Number.isInteger(Number(rawValue)) || Number(rawValue) <= 0) {
-      return fail(res, 400, "VALIDATION_ERROR", "free_juice_item_id must be a positive integer or null.");
-    } else {
-      update.free_juice_item_id = Number(rawValue);
-    }
-  }
-
   if (Object.keys(update).length === 0) {
     return fail(res, 400, "VALIDATION_ERROR", "No valid fields provided.");
   }
@@ -126,35 +98,6 @@ export default async function handler(req, res) {
           400,
           "VALIDATION_ERROR",
           "free_juice_min_subtotal_cents must be greater than 0 when free juice promo is enabled.",
-        );
-      }
-
-      const promoItemId = Number(next.free_juice_item_id);
-      if (!Number.isInteger(promoItemId) || promoItemId <= 0) {
-        return fail(
-          res,
-          400,
-          "VALIDATION_ERROR",
-          "free_juice_item_id is required when free juice promo is enabled.",
-        );
-      }
-
-      const { data: promoItem, error: promoItemError } = await supabase
-        .from("menu_items")
-        .select("id,name,category")
-        .eq("id", promoItemId)
-        .maybeSingle();
-
-      if (promoItemError) throw promoItemError;
-      if (!promoItem) {
-        return fail(res, 400, "VALIDATION_ERROR", "free_juice_item_id does not match a menu item.");
-      }
-      if (!isNaturalJuiceMenuItem(promoItem)) {
-        return fail(
-          res,
-          400,
-          "VALIDATION_ERROR",
-          "free_juice_item_id must match a natural juice menu item when free juice promo is enabled.",
         );
       }
     }

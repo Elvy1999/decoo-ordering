@@ -1,5 +1,6 @@
 const CART_KEY = "decoo_cart";
-const FREE_JUICE_PROMO_CART_KEY = "__promo_free_juice__";
+const LEGACY_FREE_JUICE_PROMO_CART_KEY = "__promo_free_juice__";
+const FREE_JUICE_PROMO_CART_KEY_PREFIX = "__promo_free_juice__:";
 const FREE_JUICE_PROMO_TYPE = "FREE_JUICE";
 const FREE_JUICE_POPUP_SESSION_KEY = "freeJuicePopupShown";
 
@@ -126,9 +127,6 @@ const normalizeSettings = (settings) => ({
   deliveryMinTotal: Number(settings?.delivery_min_total_cents || 0) / 100,
   freeJuiceEnabled: Boolean(settings?.free_juice_enabled),
   freeJuiceMinSubtotalCents: Math.max(0, Math.round(Number(settings?.free_juice_min_subtotal_cents || 0))),
-  freeJuiceItemId: Number.isInteger(Number(settings?.free_juice_item_id)) && Number(settings?.free_juice_item_id) > 0
-    ? Number(settings?.free_juice_item_id)
-    : null,
 });
 
 const normalizeMenuItem = (row) => ({
@@ -178,42 +176,75 @@ const setOrderingEnabledState = (enabled) => {
   }
 };
 
-const isPromoFreeCartLineId = (id) => id === FREE_JUICE_PROMO_CART_KEY;
+const parsePromoFreeJuiceItemIdFromLineId = (id) => {
+  if (typeof id !== "string" || !id.startsWith(FREE_JUICE_PROMO_CART_KEY_PREFIX)) return null;
+  const parsed = Number(id.slice(FREE_JUICE_PROMO_CART_KEY_PREFIX.length));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getPromoFreeJuiceLineId = (itemId) => {
+  const parsed = Number(itemId);
+  if (!Number.isInteger(parsed) || parsed <= 0) return "";
+  return `${FREE_JUICE_PROMO_CART_KEY_PREFIX}${parsed}`;
+};
+
+const isPromoFreeCartLineId = (id) =>
+  id === LEGACY_FREE_JUICE_PROMO_CART_KEY || parsePromoFreeJuiceItemIdFromLineId(id) !== null;
+
+const getSelectedFreeJuiceItemIdFromCart = (cartState) => {
+  const promoLineId = Object.keys(cartState || {}).find((id) => parsePromoFreeJuiceItemIdFromLineId(id) !== null);
+  if (!promoLineId) return null;
+  return parsePromoFreeJuiceItemIdFromLineId(promoLineId);
+};
 
 const getFreeJuicePromoConfig = () => {
   const enabled = Boolean(appSettings?.freeJuiceEnabled);
   const minSubtotalCents = Math.max(0, Math.round(Number(appSettings?.freeJuiceMinSubtotalCents || 0)));
-  const itemId = Number(appSettings?.freeJuiceItemId);
-  const normalizedItemId = Number.isInteger(itemId) && itemId > 0 ? itemId : null;
-  return { enabled, minSubtotalCents, itemId: normalizedItemId };
+  return { enabled, minSubtotalCents };
 };
 
-const getFreeJuicePromoMenuItem = () => {
-  const { itemId } = getFreeJuicePromoConfig();
-  if (!itemId) return null;
-  const menuItem = itemById[String(itemId)];
-  if (!menuItem || menuItem.inStock === false) return null;
-  return menuItem;
-};
+const isJuicesCategoryMenuItem = (menuItem) => normalizeCategory(menuItem?.category) === "juices";
+
+const getJuicesCategoryMenuItems = () =>
+  menuItems
+    .filter((item) => isJuicesCategoryMenuItem(item))
+    .sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
 
 const getFreeJuicePromoDisplayName = () => "Free Natural Juice";
 
+const getFreeJuicePromoEligibility = (cartState) => {
+  const { enabled, minSubtotalCents } = getFreeJuicePromoConfig();
+  const subtotalCents = Math.max(0, Math.round(getCartSubtotal(cartState) * 100));
+  const eligible = enabled && minSubtotalCents > 0 && subtotalCents >= minSubtotalCents;
+  return { enabled, minSubtotalCents, subtotalCents, eligible };
+};
+
 const applyFreeJuicePromo = (cartState) => {
   const nextCart = { ...cartState };
-  const { enabled, minSubtotalCents, itemId } = getFreeJuicePromoConfig();
-  const promoItem = getFreeJuicePromoMenuItem();
-  const subtotalCents = Math.max(0, Math.round(getCartSubtotal(nextCart) * 100));
-  const eligible =
-    enabled &&
-    Number.isInteger(itemId) &&
-    minSubtotalCents > 0 &&
-    subtotalCents >= minSubtotalCents &&
-    Boolean(promoItem);
+  const { eligible } = getFreeJuicePromoEligibility(nextCart);
+  const promoLineIds = Object.keys(nextCart).filter((id) => isPromoFreeCartLineId(id));
 
-  if (eligible) {
-    nextCart[FREE_JUICE_PROMO_CART_KEY] = 1;
-  } else {
-    delete nextCart[FREE_JUICE_PROMO_CART_KEY];
+  if (!eligible) {
+    promoLineIds.forEach((id) => delete nextCart[id]);
+    return nextCart;
+  }
+
+  const validPromoLineIds = promoLineIds.filter((lineId) => {
+    const selectedItemId = parsePromoFreeJuiceItemIdFromLineId(lineId);
+    if (!Number.isInteger(selectedItemId) || selectedItemId <= 0) return false;
+    const selectedItem = itemById[String(selectedItemId)];
+    if (!selectedItem || selectedItem.inStock === false) return false;
+    return isJuicesCategoryMenuItem(selectedItem);
+  });
+
+  const selectedLineId = validPromoLineIds[0] || null;
+  promoLineIds.forEach((lineId) => {
+    if (!selectedLineId || lineId !== selectedLineId) {
+      delete nextCart[lineId];
+    }
+  });
+  if (selectedLineId) {
+    nextCart[selectedLineId] = 1;
   }
 
   return nextCart;
@@ -242,7 +273,6 @@ const fetchSettingsAndMenu = async () => {
       delivery_min_total_cents: 0,
       free_juice_enabled: false,
       free_juice_min_subtotal_cents: 0,
-      free_juice_item_id: null,
     });
     menuItems = [];
     itemById = {};
@@ -327,9 +357,20 @@ const loadCart = () => {
     const stored = JSON.parse(localStorage.getItem(CART_KEY));
     if (!stored || typeof stored !== "object") return {};
     let invalidCount = 0;
+    let hasPromoSelection = false;
     const next = Object.entries(stored).reduce((acc, [id, qty]) => {
+      if (id === LEGACY_FREE_JUICE_PROMO_CART_KEY) {
+        invalidCount += 1;
+        return acc;
+      }
       if (isPromoFreeCartLineId(id) && Number.isFinite(qty) && qty > 0) {
-        acc[id] = 1;
+        const selectedItemId = parsePromoFreeJuiceItemIdFromLineId(id);
+        if (!hasPromoSelection && Number.isInteger(selectedItemId) && selectedItemId > 0) {
+          acc[id] = 1;
+          hasPromoSelection = true;
+        } else {
+          invalidCount += 1;
+        }
       } else if (itemById[id] && Number.isFinite(qty) && qty > 0) {
         acc[id] = Math.floor(qty);
       } else {
@@ -354,7 +395,15 @@ const saveCart = (cartState) => {
 const sanitizeCartForStock = (cartState) =>
   Object.entries(cartState).reduce((acc, [id, qty]) => {
     if (isPromoFreeCartLineId(id)) {
-      if (Number.isFinite(qty) && qty > 0) {
+      const selectedItemId = parsePromoFreeJuiceItemIdFromLineId(id);
+      const selectedItem = itemById[String(selectedItemId)];
+      const canKeepPromo =
+        Number.isInteger(selectedItemId) &&
+        selectedItemId > 0 &&
+        selectedItem &&
+        selectedItem.inStock !== false &&
+        isJuicesCategoryMenuItem(selectedItem);
+      if (Number.isFinite(qty) && qty > 0 && canKeepPromo && !Object.keys(acc).some((key) => isPromoFreeCartLineId(key))) {
         acc[id] = 1;
       }
       return acc;
@@ -579,9 +628,13 @@ const renderCartList = (cartState) => {
   listEl.innerHTML = entries
     .map(([id, qty]) => {
       if (isPromoFreeCartLineId(id)) {
+        const selectedItemId = parsePromoFreeJuiceItemIdFromLineId(id);
+        const selectedItemName = Number.isInteger(selectedItemId)
+          ? itemById[String(selectedItemId)]?.name || "Selected Juice"
+          : "Selected Juice";
         return `
           <li class="cart-item cart-item--promo" data-id="${id}">
-            <span class="cart-item__name">${getFreeJuicePromoDisplayName()}</span>
+            <span class="cart-item__name">${selectedItemName} (${getFreeJuicePromoDisplayName()})</span>
             <span class="cart-item__price">${formatMoney(0)}</span>
             <span class="cart-item__promo-note">Promo item · qty 1</span>
           </li>
@@ -748,6 +801,7 @@ const syncUIAfterCartChange = (cartState, changedId) => {
   updateCheckoutButton(cartState);
   updateCartBar(cartState);
   renderDeliveryMinUI(cartState);
+  renderFreeJuicePicker(cartState);
 
   if (isCheckoutOpen() && isReviewStepActive()) {
     updateTotalsBlock(checkoutTotals, calculateReviewTotals(cartState));
@@ -814,6 +868,9 @@ const paymentContainer = document.querySelector("#clover-payment-container");
 const payNowBtn = document.querySelector("[data-pay-now]");
 const editOrderBtn = document.querySelector("[data-edit-order]");
 const placeOrderBtn = document.querySelector("[data-place-order]");
+const freeJuicePicker = document.querySelector("[data-free-juice-picker]");
+const freeJuiceSelect = document.querySelector("[data-free-juice-select]");
+const freeJuicePickerHelp = document.querySelector("[data-free-juice-picker-help]");
 const freeJuicePopup = document.querySelector("[data-free-juice-popup]");
 const freeJuicePopupCopy = document.querySelector("[data-free-juice-popup-copy]");
 const freeJuicePopupCloseBtn = document.querySelector("[data-free-juice-popup-close]");
@@ -843,6 +900,48 @@ let cloverReady = false;
 let freeJuicePopupTimer = null;
 
 if (payNowBtn) payNowBtn.disabled = true;
+
+const renderFreeJuicePicker = (cartState = cart) => {
+  if (!freeJuicePicker || !freeJuiceSelect) return;
+
+  const { enabled, minSubtotalCents, eligible } = getFreeJuicePromoEligibility(cartState);
+  const juices = getJuicesCategoryMenuItems();
+  const shouldShow =
+    isCheckoutOpen() &&
+    isReviewStepActive() &&
+    !pendingOrder &&
+    enabled &&
+    minSubtotalCents > 0 &&
+    eligible &&
+    juices.length > 0;
+
+  if (!shouldShow) {
+    freeJuicePicker.hidden = true;
+    freeJuiceSelect.innerHTML = '<option value="">Select a juice</option>';
+    if (freeJuicePickerHelp) freeJuicePickerHelp.textContent = "";
+    return;
+  }
+
+  const selectedItemId = getSelectedFreeJuiceItemIdFromCart(cartState);
+  const options = ['<option value="">Select a juice</option>'];
+  juices.forEach((item) => {
+    const id = Number(item?.id);
+    if (!Number.isInteger(id) || id <= 0) return;
+    const disabled = item.inStock === false;
+    const selected = selectedItemId === id ? " selected" : "";
+    const disabledAttr = disabled ? " disabled" : "";
+    const outOfStockLabel = disabled ? " (Out of stock)" : "";
+    options.push(`<option value="${id}"${selected}${disabledAttr}>${item.name}${outOfStockLabel}</option>`);
+  });
+  freeJuiceSelect.innerHTML = options.join("");
+  if (!Number.isInteger(selectedItemId) || selectedItemId <= 0) {
+    freeJuiceSelect.value = "";
+  }
+  if (freeJuicePickerHelp) {
+    freeJuicePickerHelp.textContent = `Minimum subtotal met: ${formatMoney(minSubtotalCents / 100)}+`;
+  }
+  freeJuicePicker.hidden = false;
+};
 
 const bootstrapApp = async () => {
   await fetchSettingsAndMenu();
@@ -935,11 +1034,11 @@ const closeFreeJuicePopup = () => {
 
 const showFreeJuicePopup = () => {
   if (!freeJuicePopup) return;
-  const { enabled, minSubtotalCents, itemId } = getFreeJuicePromoConfig();
-  if (!enabled || minSubtotalCents <= 0 || !itemId) return;
+  const { enabled, minSubtotalCents } = getFreeJuicePromoConfig();
+  if (!enabled || minSubtotalCents <= 0) return;
 
   if (freeJuicePopupCopy) {
-    freeJuicePopupCopy.textContent = `Free Natural Juice with minimum order of ${formatMoney(minSubtotalCents / 100)}!`;
+    freeJuicePopupCopy.textContent = `Free Natural Juice with minimum order of ${formatMoney(minSubtotalCents / 100)}+ (Choose any juice)`;
   }
 
   freeJuicePopup.hidden = false;
@@ -956,8 +1055,8 @@ const scheduleFreeJuicePopup = () => {
   if (!freeJuicePopup) return;
   if (sessionStorage.getItem(FREE_JUICE_POPUP_SESSION_KEY) === "true") return;
 
-  const { enabled, minSubtotalCents, itemId } = getFreeJuicePromoConfig();
-  if (!enabled || minSubtotalCents <= 0 || !itemId) return;
+  const { enabled, minSubtotalCents } = getFreeJuicePromoConfig();
+  if (!enabled || minSubtotalCents <= 0) return;
 
   freeJuicePopupTimer = setTimeout(() => {
     freeJuicePopupTimer = null;
@@ -1023,17 +1122,20 @@ const refreshReviewTotals = (cartState = cart) => {
 };
 
 const buildOrderPayloadItems = (cartState) => {
-  const { itemId: freeJuiceItemId } = getFreeJuicePromoConfig();
-
+  let sentPromoLine = false;
   return Object.entries(cartState).flatMap(([id, qty]) => {
     if (isPromoFreeCartLineId(id)) {
+      if (sentPromoLine) return [];
+      const freeJuiceItemId = parsePromoFreeJuiceItemIdFromLineId(id);
       if (!Number.isInteger(freeJuiceItemId) || freeJuiceItemId <= 0) return [];
+      sentPromoLine = true;
+      const freeJuiceName = itemById[String(freeJuiceItemId)]?.name || getFreeJuicePromoDisplayName();
       return [
         {
           id: freeJuiceItemId,
           qty: 1,
           quantity: 1,
-          name: getFreeJuicePromoDisplayName(),
+          name: freeJuiceName,
           price_cents: 0,
           isPromoFreeItem: true,
           promoType: FREE_JUICE_PROMO_TYPE,
@@ -1239,8 +1341,10 @@ const setCheckoutStep = (step) => {
   }
   if (step === "review") {
     syncPromoUI();
+    renderFreeJuicePicker(cart);
   } else {
     setPromoMessage("", "");
+    if (freeJuicePicker) freeJuicePicker.hidden = true;
   }
   renderDeliveryMinUI(cart);
   requestAnimationFrame(updateAllModalScrollIndicators);
@@ -1294,9 +1398,13 @@ const renderCheckoutSummary = (targetUl, cartState) => {
   targetUl.innerHTML = entries
     .map(([id, qty]) => {
       if (isPromoFreeCartLineId(id)) {
+        const selectedItemId = parsePromoFreeJuiceItemIdFromLineId(id);
+        const selectedItemName = Number.isInteger(selectedItemId)
+          ? itemById[String(selectedItemId)]?.name || "Selected Juice"
+          : "Selected Juice";
         return `
           <li class="checkout-summary__promo-item">
-            <span>${getFreeJuicePromoDisplayName()} × 1</span>
+            <span>${selectedItemName} (${getFreeJuicePromoDisplayName()}) × 1</span>
             <span>${formatMoney(0)}</span>
           </li>
         `;
@@ -1744,6 +1852,25 @@ addDrinkButtons.forEach((button) => {
   });
 });
 
+if (freeJuiceSelect) {
+  freeJuiceSelect.addEventListener("change", () => {
+    const nextCart = { ...cart };
+    Object.keys(nextCart).forEach((id) => {
+      if (isPromoFreeCartLineId(id)) delete nextCart[id];
+    });
+
+    const selectedItemId = Number(freeJuiceSelect.value);
+    const lineId = getPromoFreeJuiceLineId(selectedItemId);
+    if (lineId) {
+      nextCart[lineId] = 1;
+    }
+
+    cart = applyFreeJuicePromo(sanitizeCartForStock(nextCart));
+    saveCart(cart);
+    syncUIAfterCartChange(cart);
+  });
+}
+
 if (freeJuicePopupCloseBtn) {
   freeJuicePopupCloseBtn.addEventListener("click", () => {
     closeFreeJuicePopup();
@@ -2103,6 +2230,17 @@ document.addEventListener("click", async (event) => {
       return;
     }
     if (checkoutError) checkoutError.hidden = true;
+
+    const freeJuicePromoState = getFreeJuicePromoEligibility(cart);
+    const selectedFreeJuiceItemId = getSelectedFreeJuiceItemIdFromCart(cart);
+    if (freeJuicePromoState.eligible && (!Number.isInteger(selectedFreeJuiceItemId) || selectedFreeJuiceItemId <= 0)) {
+      if (checkoutError) {
+        checkoutError.textContent = "Please select your free juice.";
+        checkoutError.hidden = false;
+      }
+      renderFreeJuicePicker(cart);
+      return;
+    }
 
     const cartSnapshot = { ...cart };
     const totals = calculateReviewTotals(cartSnapshot);
