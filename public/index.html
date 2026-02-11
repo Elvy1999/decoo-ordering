@@ -465,15 +465,20 @@
 
     <div class="promo-popup" data-free-juice-popup hidden>
       <div class="promo-popup__card" role="dialog" aria-modal="false" aria-labelledby="free-juice-popup-title">
-        <button class="promo-popup__close" type="button" aria-label="Close promo" data-free-juice-popup-close>
-          x
-        </button>
-        <div class="promo-popup__media">
-          <img src="/images/juices.png" alt="Natural juice selection" />
+        <div class="promo-popup__header">
+          <button class="promo-popup__close" type="button" aria-label="Close promo" data-free-juice-popup-close>
+            &times;
+          </button>
+        </div>
+        <div class="promo-popup__media" data-free-juice-popup-media>
+          <img src="/naturalpic.jpg" alt="Natural juice selection" data-free-juice-popup-image />
         </div>
         <div class="promo-popup__body">
-          <h3 id="free-juice-popup-title">Free Natural Juice Promo</h3>
-          <p data-free-juice-popup-copy>Free Natural Juice with minimum order of $0.00+ (Choose any juice)</p>
+          <h3 id="free-juice-popup-title">Free Natural Juice</h3>
+          <p class="promo-popup__copy-main" data-free-juice-popup-copy>
+            Free natural juice with minimum order of $0.00+
+          </p>
+          <p class="promo-popup__copy-note">(Choose any juice)</p>
           <button type="button" class="btn btn--primary promo-popup__cta" data-free-juice-popup-order>
             Order Now
           </button>

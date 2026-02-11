@@ -875,6 +875,8 @@ const freeJuicePopup = document.querySelector("[data-free-juice-popup]");
 const freeJuicePopupCopy = document.querySelector("[data-free-juice-popup-copy]");
 const freeJuicePopupCloseBtn = document.querySelector("[data-free-juice-popup-close]");
 const freeJuicePopupOrderBtn = document.querySelector("[data-free-juice-popup-order]");
+const freeJuicePopupMedia = document.querySelector("[data-free-juice-popup-media]");
+const freeJuicePopupImage = document.querySelector("[data-free-juice-popup-image]");
 
 // --- Checkout state ---
 let checkoutState = {
@@ -898,6 +900,22 @@ let cloverInitPromise = null;
 let cloverSdkPromise = null;
 let cloverReady = false;
 let freeJuicePopupTimer = null;
+
+const markFreeJuicePopupImageFallback = () => {
+  if (!freeJuicePopupMedia) return;
+  freeJuicePopupMedia.classList.add("is-fallback");
+};
+
+if (freeJuicePopupImage) {
+  freeJuicePopupImage.addEventListener("load", () => {
+    if (!freeJuicePopupMedia) return;
+    freeJuicePopupMedia.classList.remove("is-fallback");
+  });
+  freeJuicePopupImage.addEventListener("error", markFreeJuicePopupImageFallback, { once: true });
+  if (freeJuicePopupImage.complete && freeJuicePopupImage.naturalWidth === 0) {
+    markFreeJuicePopupImageFallback();
+  }
+}
 
 if (payNowBtn) payNowBtn.disabled = true;
 
@@ -1038,7 +1056,7 @@ const showFreeJuicePopup = () => {
   if (!enabled || minSubtotalCents <= 0) return;
 
   if (freeJuicePopupCopy) {
-    freeJuicePopupCopy.textContent = `Free Natural Juice with minimum order of ${formatMoney(minSubtotalCents / 100)}+ (Choose any juice)`;
+    freeJuicePopupCopy.textContent = `Free natural juice with minimum order of ${formatMoney(minSubtotalCents / 100)}+`;
   }
 
   freeJuicePopup.hidden = false;

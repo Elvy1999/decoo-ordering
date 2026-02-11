@@ -1269,8 +1269,8 @@ p {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
-  background: rgba(17, 17, 17, 0.4);
+  padding: 16px;
+  background: rgba(12, 12, 12, 0.46);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
@@ -1283,58 +1283,147 @@ p {
 
 .promo-popup__card {
   position: relative;
-  width: min(620px, 100%);
-  border-radius: 16px;
+  width: min(90vw, 320px);
+  max-width: 320px;
+  max-height: min(86vh, 520px);
+  border-radius: 18px;
   background: #ffffff;
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
-  display: grid;
-  grid-template-columns: 180px 1fr;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.23);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  transform: translateY(-3vh) scale(0.985);
+  transition: transform 0.2s ease;
+}
+
+.promo-popup.is-open .promo-popup__card {
+  transform: translateY(-3vh) scale(1);
+}
+
+.promo-popup__header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 10px 4px;
 }
 
 .promo-popup__close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border: 1px solid rgba(0, 0, 0, 0.14);
   border-radius: 999px;
-  background: #ffffff;
-  color: #222222;
+  background: rgba(250, 250, 250, 0.95);
+  color: #3b2f24;
   font-weight: 700;
+  font-size: 18px;
+  line-height: 1;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.promo-popup__close:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+  background: #ffffff;
+}
+
+.promo-popup__close:focus-visible {
+  outline: 2px solid rgba(245, 197, 66, 0.9);
+  outline-offset: 2px;
 }
 
 .promo-popup__media {
-  min-height: 140px;
+  min-height: 120px;
+  padding: 0 14px;
 }
 
 .promo-popup__media img {
   width: 100%;
-  height: 100%;
+  height: clamp(120px, 36vw, 150px);
   object-fit: cover;
   display: block;
+  border-radius: 12px;
+  background: #f4ede2;
+}
+
+.promo-popup__media.is-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.promo-popup__media.is-fallback::after {
+  content: "Natural Juice";
+  width: 100%;
+  height: clamp(120px, 36vw, 150px);
+  border-radius: 12px;
+  background: #f4ede2;
+  color: #7a4a00;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.promo-popup__media.is-fallback img {
+  display: none;
 }
 
 .promo-popup__body {
-  padding: 22px 20px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px 14px 14px;
   display: grid;
-  gap: 12px;
+  gap: 8px;
+  text-align: center;
+  overflow-y: auto;
 }
 
 .promo-popup__body h3 {
   margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.2;
 }
 
-.promo-popup__body p {
+.promo-popup__copy-main {
   margin: 0;
   font-weight: 600;
   color: #3a2a1a;
 }
 
+.promo-popup__copy-note {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #6b5b4b;
+}
+
 .promo-popup__cta {
-  justify-self: start;
+  width: 100%;
+  margin-top: 4px;
+  margin-bottom: 2px;
+  min-height: 42px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  justify-self: stretch;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+@media (min-width: 768px) {
+  .promo-popup__card {
+    width: min(88vw, 400px);
+    max-width: 400px;
+    transform: translateY(-4vh) scale(0.985);
+  }
+
+  .promo-popup.is-open .promo-popup__card {
+    transform: translateY(-4vh) scale(1);
+  }
+
+  .promo-popup__media img,
+  .promo-popup__media.is-fallback::after {
+    height: 160px;
+  }
 }
 
 .cart-empty {
@@ -1488,22 +1577,25 @@ p {
     padding-bottom: 0;
   }
   .promo-popup {
-    align-items: flex-end;
-    padding: 14px;
+    padding: 12px;
   }
   .promo-popup__card {
-    grid-template-columns: 1fr;
-    width: min(460px, 100%);
+    width: min(90vw, 320px);
+    max-width: 320px;
+    transform: translateY(-2vh) scale(0.985);
   }
-  .promo-popup__media {
-    min-height: 150px;
+  .promo-popup.is-open .promo-popup__card {
+    transform: translateY(-2vh) scale(1);
+  }
+  .promo-popup__media img,
+  .promo-popup__media.is-fallback::after {
+    height: clamp(120px, 42vw, 150px);
   }
   .promo-popup__body {
-    padding: 18px 16px;
+    padding: 10px 12px 12px;
   }
-  .promo-popup__cta {
-    width: 100%;
-    justify-self: stretch;
+  .promo-popup__body h3 {
+    font-size: 1.08rem;
   }
 }
 @media (max-width: 520px) {
