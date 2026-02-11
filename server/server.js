@@ -32,6 +32,7 @@ const ADDRESS_MAX_LEN = 60;
 const MAX_UNIQUE_ITEMS = 30;
 const MAX_ITEM_QTY = 20;
 const MAX_TOTAL_QTY = 50;
+const FREE_JUICE_PROMO_TYPE = "FREE_JUICE";
 
 const digitsOnly = (phone) => String(phone || "").replace(/\D/g, "");
 const isValidPhone = (phone) => {
@@ -45,6 +46,24 @@ const toCents = (value) => {
   const numberValue = Number(value);
   if (!Number.isFinite(numberValue)) return 0;
   return Math.round(numberValue);
+};
+
+const normalizeText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const isNaturalJuiceMenuItem = (menuItem) => {
+  const category = normalizeText(menuItem?.category);
+  const name = normalizeText(menuItem?.name);
+  const looksJuice = category.includes("juice") || category.includes("jugo") || name.includes("juice") || name.includes("jugo");
+  const looksSoda =
+    category.includes("soda") ||
+    name.includes("soda") ||
+    name.includes("coke") ||
+    name.includes("sprite") ||
+    name.includes("pepsi");
+  return looksJuice && !looksSoda;
 };
 
 const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN;
@@ -98,7 +117,7 @@ const fetchSettings = async () => {
   const { data, error } = await supabase
     .from("settings")
     .select(
-      "ordering_enabled,delivery_enabled,delivery_radius_miles,processing_fee_cents,delivery_fee_cents,delivery_min_total_cents",
+      "ordering_enabled,delivery_enabled,delivery_radius_miles,processing_fee_cents,delivery_fee_cents,delivery_min_total_cents,free_juice_enabled,free_juice_min_subtotal_cents,free_juice_item_id",
     )
     .eq("id", 1)
     .single();
@@ -267,6 +286,7 @@ const validateOrderPayload = (payload) => {
   }
 
   const normalizedItems = new Map();
+  let clientPromoFreeItem = null;
   let totalQty = 0;
 
   for (const item of payload.items) {
@@ -277,6 +297,31 @@ const validateOrderPayload = (payload) => {
     const id = Number(item.id);
     if (!Number.isFinite(id)) {
       return { error: "Each item must include a valid id and quantity." };
+    }
+
+    const promoTypeRaw =
+      typeof item.promoType === "string"
+        ? item.promoType
+        : typeof item.promo_type === "string"
+          ? item.promo_type
+          : "";
+    const promoType = promoTypeRaw.trim().toUpperCase();
+    const isPromoFreeItem =
+      item.isPromoFreeItem === true || item.is_promo_free_item === true || promoType === FREE_JUICE_PROMO_TYPE;
+
+    if (isPromoFreeItem) {
+      if (promoType && promoType !== FREE_JUICE_PROMO_TYPE) {
+        return { error: "Unsupported promo item type." };
+      }
+      if (!clientPromoFreeItem) {
+        clientPromoFreeItem = {
+          id,
+          qty: 1,
+          isPromoFreeItem: true,
+          promoType: FREE_JUICE_PROMO_TYPE,
+        };
+      }
+      continue;
     }
 
     const qtyValue = Number(item.qty);
@@ -304,7 +349,11 @@ const validateOrderPayload = (payload) => {
     }
   }
 
-  return { error: "", normalizedItems };
+  if (normalizedItems.size === 0) {
+    return { error: "Cart is empty." };
+  }
+
+  return { error: "", normalizedItems, clientPromoFreeItem };
 };
 
 app.post("/api/orders", async (req, res) => {
@@ -319,6 +368,7 @@ app.post("/api/orders", async (req, res) => {
 
   const { customer_name, customer_phone, fulfillment_type, delivery_address } = req.body;
   const normalizedItems = validation.normalizedItems;
+  const clientPromoFreeItem = validation.clientPromoFreeItem;
 
   const itemIds = Array.from(normalizedItems.keys());
 
@@ -334,7 +384,7 @@ app.post("/api/orders", async (req, res) => {
 
     const { data: menuRows, error: menuError } = await supabase
       .from("menu_items")
-      .select("id,name,price_cents,is_active,in_stock")
+      .select("id,name,category,price_cents,is_active,in_stock")
       .in("id", itemIds);
 
     if (menuError) throw menuError;
@@ -364,6 +414,59 @@ app.post("/api/orders", async (req, res) => {
         unit_price_cents: priceCents,
         qty,
         line_total_cents: lineTotal,
+      });
+    }
+
+    let freeJuicePromoApplied = false;
+    const freeJuiceEnabled = settings?.free_juice_enabled === true;
+    const freeJuiceMinSubtotalCents = Math.max(0, toCents(settings?.free_juice_min_subtotal_cents));
+    const configuredFreeJuiceItemId = Number(settings?.free_juice_item_id);
+    const hasValidPromoConfig =
+      freeJuiceEnabled &&
+      freeJuiceMinSubtotalCents > 0 &&
+      Number.isInteger(configuredFreeJuiceItemId) &&
+      configuredFreeJuiceItemId > 0;
+
+    let freeJuiceEligible = hasValidPromoConfig && subtotalCents >= freeJuiceMinSubtotalCents;
+    if (freeJuiceEligible) {
+      let promoMenuItem = menuById.get(configuredFreeJuiceItemId) || null;
+      if (!promoMenuItem) {
+        const { data: promoItemData, error: promoItemError } = await supabase
+          .from("menu_items")
+          .select("id,name,category,is_active,in_stock")
+          .eq("id", configuredFreeJuiceItemId)
+          .maybeSingle();
+        if (promoItemError) throw promoItemError;
+        promoMenuItem = promoItemData || null;
+      }
+
+      if (
+        !promoMenuItem ||
+        !promoMenuItem.is_active ||
+        !promoMenuItem.in_stock ||
+        !isNaturalJuiceMenuItem(promoMenuItem)
+      ) {
+        freeJuiceEligible = false;
+      }
+    }
+
+    if (freeJuiceEligible) {
+      orderItems.push({
+        item_name: "Free Natural Juice",
+        unit_price_cents: 0,
+        qty: 1,
+        line_total_cents: 0,
+      });
+      freeJuicePromoApplied = true;
+    } else if (clientPromoFreeItem) {
+      console.log("[promo] dropped client free juice item", {
+        sent_item_id: Number(clientPromoFreeItem.id) || null,
+        subtotal_cents: subtotalCents,
+        configured_min_subtotal_cents: freeJuiceMinSubtotalCents,
+        configured_item_id:
+          Number.isInteger(configuredFreeJuiceItemId) && configuredFreeJuiceItemId > 0
+            ? configuredFreeJuiceItemId
+            : null,
       });
     }
 
@@ -466,6 +569,9 @@ app.post("/api/orders", async (req, res) => {
 
     if (fulfillment_type === "delivery" && Number.isFinite(deliveryDistanceMiles)) {
       orderLog.distance_miles = Number(deliveryDistanceMiles.toFixed(2));
+    }
+    if (freeJuicePromoApplied) {
+      orderLog.free_juice_promo = true;
     }
 
     console.log("[order]", orderLog);

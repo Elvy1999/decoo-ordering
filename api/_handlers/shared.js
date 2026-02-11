@@ -7,6 +7,7 @@ export const ADDRESS_MAX_LEN = 60;
 export const MAX_UNIQUE_ITEMS = 30;
 export const MAX_ITEM_QTY = 20;
 export const MAX_TOTAL_QTY = 50;
+export const SETTINGS_ROW_ID = 1;
 
 export function json(res, status, body) {
   res.statusCode = status;
@@ -128,9 +129,9 @@ export async function fetchSettings(supabase) {
   const { data, error } = await supabase
     .from("settings")
     .select(
-      "ordering_enabled,delivery_enabled,delivery_radius_miles,processing_fee_cents,delivery_fee_cents,delivery_min_total_cents",
+      "ordering_enabled,delivery_enabled,delivery_radius_miles,processing_fee_cents,delivery_fee_cents,delivery_min_total_cents,free_juice_enabled,free_juice_min_subtotal_cents,free_juice_item_id",
     )
-    .eq("id", 1)
+    .eq("id", SETTINGS_ROW_ID)
     .single();
 
   if (error) throw error;

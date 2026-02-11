@@ -760,6 +760,10 @@ p {
   font-weight: 600;
 }
 
+.checkout-summary__promo-item {
+  color: #2d6b2f;
+}
+
 .checkout-actions {
   display: flex;
   justify-content: space-between;
@@ -1246,6 +1250,93 @@ p {
   grid-column: 1 / -1;
 }
 
+.cart-item--promo {
+  background: #f2fbf0;
+  border-color: rgba(45, 107, 47, 0.3);
+}
+
+.cart-item__promo-note {
+  grid-column: 1 / -1;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #2d6b2f;
+}
+
+.promo-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 1700;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background: rgba(17, 17, 17, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.promo-popup.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.promo-popup__card {
+  position: relative;
+  width: min(620px, 100%);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  overflow: hidden;
+}
+
+.promo-popup__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #222222;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.promo-popup__media {
+  min-height: 140px;
+}
+
+.promo-popup__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.promo-popup__body {
+  padding: 22px 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.promo-popup__body h3 {
+  margin: 0;
+}
+
+.promo-popup__body p {
+  margin: 0;
+  font-weight: 600;
+  color: #3a2a1a;
+}
+
+.promo-popup__cta {
+  justify-self: start;
+}
+
 .cart-empty {
   text-align: center;
   padding: 16px;
@@ -1395,6 +1486,24 @@ p {
   }
   .drinks__card {
     padding-bottom: 0;
+  }
+  .promo-popup {
+    align-items: flex-end;
+    padding: 14px;
+  }
+  .promo-popup__card {
+    grid-template-columns: 1fr;
+    width: min(460px, 100%);
+  }
+  .promo-popup__media {
+    min-height: 150px;
+  }
+  .promo-popup__body {
+    padding: 18px 16px;
+  }
+  .promo-popup__cta {
+    width: 100%;
+    justify-self: stretch;
   }
 }
 @media (max-width: 520px) {
