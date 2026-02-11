@@ -2,7 +2,6 @@ const CART_KEY = "decoo_cart";
 const LEGACY_FREE_JUICE_PROMO_CART_KEY = "__promo_free_juice__";
 const FREE_JUICE_PROMO_CART_KEY_PREFIX = "__promo_free_juice__:";
 const FREE_JUICE_PROMO_TYPE = "FREE_JUICE";
-const FREE_JUICE_POPUP_SESSION_KEY = "freeJuicePopupShown";
 
 let appSettings = null;
 let itemById = {};
@@ -1053,7 +1052,7 @@ const closeFreeJuicePopup = () => {
 const showFreeJuicePopup = () => {
   if (!freeJuicePopup) return;
   const { enabled, minSubtotalCents } = getFreeJuicePromoConfig();
-  if (!enabled || minSubtotalCents <= 0) return;
+  if (!enabled) return;
 
   if (freeJuicePopupCopy) {
     freeJuicePopupCopy.textContent = `Free natural juice with minimum order of ${formatMoney(minSubtotalCents / 100)}+`;
@@ -1063,7 +1062,6 @@ const showFreeJuicePopup = () => {
   requestAnimationFrame(() => {
     freeJuicePopup.classList.add("is-open");
   });
-  sessionStorage.setItem(FREE_JUICE_POPUP_SESSION_KEY, "true");
 };
 
 const scheduleFreeJuicePopup = () => {
@@ -1071,14 +1069,10 @@ const scheduleFreeJuicePopup = () => {
   closeFreeJuicePopup();
 
   if (!freeJuicePopup) return;
-  if (sessionStorage.getItem(FREE_JUICE_POPUP_SESSION_KEY) === "true") return;
-
-  const { enabled, minSubtotalCents } = getFreeJuicePromoConfig();
-  if (!enabled || minSubtotalCents <= 0) return;
+  if (appSettings?.freeJuiceEnabled !== true) return;
 
   freeJuicePopupTimer = setTimeout(() => {
     freeJuicePopupTimer = null;
-    if (document.hidden) return;
     showFreeJuicePopup();
   }, 5000);
 };
@@ -1914,6 +1908,11 @@ if (freeJuicePopup) {
 }
 
 window.addEventListener("pagehide", () => {
+  clearFreeJuicePopupTimer();
+  closeFreeJuicePopup();
+});
+
+window.addEventListener("beforeunload", () => {
   clearFreeJuicePopupTimer();
   closeFreeJuicePopup();
 });
