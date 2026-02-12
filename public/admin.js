@@ -21,8 +21,12 @@ const ADMIN_PROMO_CODES_PATH = `${ADMIN_ROUTE_BASE}promo-codes`;
 const ADMIN_PROMO_CODE_PATH = `${ADMIN_ROUTE_BASE}promo-code`;
 const ADMIN_REPRINT_PATH = "/api/admin?route=reprint";
 
-const newOrderSound = new Audio("/order_sound.mp3");
-newOrderSound.volume = 0.7;
+const SOUND_START_SEC = 46;
+const SOUND_DURATION_SEC = 8;
+const orderSound = new Audio("/backata.mp3");
+orderSound.preload = "auto";
+orderSound.volume = 0.7;
+let soundStopTimer = null;
 
 const loginPanel = document.getElementById("login-panel");
 const adminPanels = document.getElementById("admin-panels");
@@ -92,6 +96,33 @@ const setAuthState = (isAuthed) => {
 };
 
 const getToken = () => sessionStorage.getItem(TOKEN_KEY);
+
+const isPaidOrder = (order) => order?.payment_status === "paid" || Boolean(order?.paid_at);
+
+const ensureSoundReady = () =>
+  new Promise((resolve) => {
+    if (orderSound.readyState >= 1) {
+      resolve();
+      return;
+    }
+    orderSound.addEventListener("loadedmetadata", () => resolve(), { once: true });
+  });
+
+const playOrderSound = async () => {
+  try {
+    await ensureSoundReady();
+    orderSound.currentTime = SOUND_START_SEC;
+    await orderSound.play();
+
+    clearTimeout(soundStopTimer);
+    soundStopTimer = setTimeout(() => {
+      orderSound.pause();
+      orderSound.currentTime = SOUND_START_SEC;
+    }, SOUND_DURATION_SEC * 1000);
+  } catch {
+    console.log("Audio bloqueado hasta que el usuario interactue");
+  }
+};
 
 const getSupabaseClient = () => {
   if (!createClient) {
@@ -724,16 +755,17 @@ const startRealtime = () => {
     .channel(REALTIME_CHANNEL)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, (payload) => {
       scheduleOrdersRefresh();
-      if (payload?.new?.status === "new") {
-        newOrderSound.currentTime = 0;
-        newOrderSound.play().catch(() => {
-          console.log("Audio bloqueado hasta que el usuario interactue");
-        });
+      if (isPaidOrder(payload?.new)) {
+        void playOrderSound();
+        showToast("Nuevo pedido pagado.");
       }
-      showToast("Nuevo pedido recibido.");
     })
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, () => {
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, (payload) => {
       scheduleOrdersRefresh();
+      if (isPaidOrder(payload?.new) && !isPaidOrder(payload?.old)) {
+        void playOrderSound();
+        showToast("Nuevo pedido pagado.");
+      }
     })
     .subscribe();
 };
