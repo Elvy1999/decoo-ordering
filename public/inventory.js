@@ -188,13 +188,13 @@ const renderModal = () => {
 
     const stockPill = document.createElement("span");
     stockPill.className = `stock-pill ${inStock ? "stock-pill--in" : "stock-pill--out"}`;
-    stockPill.textContent = inStock ? "In stock" : "Out";
+    stockPill.textContent = inStock ? "DIsponible" : "No Disponible";
 
     const toggleBtn = document.createElement("button");
     toggleBtn.type = "button";
     toggleBtn.className = `toggle-btn${inStock ? " mark-in" : ""}`;
     toggleBtn.disabled = updatingItemIds.has(itemId);
-    toggleBtn.textContent = inStock ? "Agotado" : "Disponible";
+    toggleBtn.textContent = inStock ? "Existencia" : "Disponible";
     toggleBtn.addEventListener("click", () => {
       void toggleInventory(item.id, !inStock);
     });
