@@ -192,7 +192,9 @@ const isPromoFreeCartLineId = (id) =>
   id === LEGACY_FREE_JUICE_PROMO_CART_KEY || parsePromoFreeJuiceItemIdFromLineId(id) !== null;
 
 const getSelectedFreeJuiceItemIdFromCart = (cartState) => {
-  const promoLineId = Object.keys(cartState || {}).find((id) => parsePromoFreeJuiceItemIdFromLineId(id) !== null);
+  const promoLineId = Object.keys(cartState || {}).find(
+    (id) => parsePromoFreeJuiceItemIdFromLineId(id) !== null,
+  );
   if (!promoLineId) return null;
   return parsePromoFreeJuiceItemIdFromLineId(promoLineId);
 };
@@ -403,7 +405,12 @@ const sanitizeCartForStock = (cartState) =>
         selectedItem &&
         selectedItem.inStock !== false &&
         isJuicesCategoryMenuItem(selectedItem);
-      if (Number.isFinite(qty) && qty > 0 && canKeepPromo && !Object.keys(acc).some((key) => isPromoFreeCartLineId(key))) {
+      if (
+        Number.isFinite(qty) &&
+        qty > 0 &&
+        canKeepPromo &&
+        !Object.keys(acc).some((key) => isPromoFreeCartLineId(key))
+      ) {
         acc[id] = 1;
       }
       return acc;
@@ -2188,8 +2195,56 @@ document.addEventListener("click", async (event) => {
       }
 
       const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+      const orderId = String(pendingOrder.order_id);
+      const orderTotal = Number(pendingOrder.total_cents || 0) / 100;
+      const cartItems = Object.entries(pendingOrder.cartSnapshot || {}).flatMap(([id, quantity]) => {
+        const qty = Number(quantity);
+        if (!Number.isFinite(qty) || qty <= 0) return [];
+
+        if (isPromoFreeCartLineId(id)) {
+          const freeJuiceItemId = parsePromoFreeJuiceItemIdFromLineId(id);
+          const freeJuiceItem = Number.isInteger(freeJuiceItemId) ? itemById[String(freeJuiceItemId)] : null;
+          const freeJuiceName = freeJuiceItem?.name || getFreeJuicePromoDisplayName();
+
+          return [
+            {
+              id: freeJuiceItem?.id || freeJuiceName,
+              name: freeJuiceName,
+              price: 0,
+              quantity: 1,
+            },
+          ];
+        }
+
+        const item = itemById[String(id)];
+        if (!item) return [];
+
+        return [
+          {
+            id: item.id || item.name,
+            name: item.name,
+            price: Number(item.price || 0),
+            quantity: qty,
+          },
+        ];
+      });
+
+      if (typeof gtag === "function") {
+        gtag("event", "purchase", {
+          transaction_id: orderId,
+          value: orderTotal,
+          currency: "USD",
+          items: cartItems.map((item) => ({
+            item_name: item.name,
+            item_id: item.id || item.name,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+        });
+      }
+
       renderConfirmation(
-        String(pendingOrder.order_id),
+        orderId,
         pendingOrder.cartSnapshot,
         pendingOrder.totals,
         warnings,
@@ -2244,7 +2299,10 @@ document.addEventListener("click", async (event) => {
 
     const freeJuicePromoState = getFreeJuicePromoEligibility(cart);
     const selectedFreeJuiceItemId = getSelectedFreeJuiceItemIdFromCart(cart);
-    if (freeJuicePromoState.eligible && (!Number.isInteger(selectedFreeJuiceItemId) || selectedFreeJuiceItemId <= 0)) {
+    if (
+      freeJuicePromoState.eligible &&
+      (!Number.isInteger(selectedFreeJuiceItemId) || selectedFreeJuiceItemId <= 0)
+    ) {
       if (checkoutError) {
         checkoutError.textContent = "Please select your free juice.";
         checkoutError.hidden = false;
