@@ -194,7 +194,7 @@ const renderModal = () => {
     toggleBtn.type = "button";
     toggleBtn.className = `toggle-btn${inStock ? " mark-in" : ""}`;
     toggleBtn.disabled = updatingItemIds.has(itemId);
-    toggleBtn.textContent = inStock ? "Existencia" : "Disponible";
+    toggleBtn.textContent = "Existencia";
     toggleBtn.addEventListener("click", () => {
       void toggleInventory(item.id, !inStock);
     });
