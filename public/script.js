@@ -2229,8 +2229,16 @@ document.addEventListener("click", async (event) => {
         ];
       });
 
-      if (typeof gtag === "function") {
-        gtag("event", "purchase", {
+      const ga4PurchaseKey = `ga4_purchase_sent_${orderId}`;
+      let purchaseAlreadySent = false;
+      try {
+        purchaseAlreadySent = window.sessionStorage.getItem(ga4PurchaseKey) === "1";
+      } catch (error) {
+        console.warn("GA4 purchase guard unavailable", error);
+      }
+
+      if (!purchaseAlreadySent) {
+        const purchasePayload = {
           transaction_id: orderId,
           value: orderTotal,
           currency: "USD",
@@ -2240,7 +2248,19 @@ document.addEventListener("click", async (event) => {
             price: item.price,
             quantity: item.quantity,
           })),
-        });
+        };
+
+        if (typeof window.gtag === "function") {
+          console.log("GA4 purchase firing", purchasePayload);
+          window.gtag("event", "purchase", purchasePayload);
+          try {
+            window.sessionStorage.setItem(ga4PurchaseKey, "1");
+          } catch (error) {
+            console.warn("GA4 purchase guard write failed", error);
+          }
+        } else {
+          console.warn("gtag missing; GA4 purchase not sent", purchasePayload);
+        }
       }
 
       renderConfirmation(
