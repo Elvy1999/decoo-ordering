@@ -269,7 +269,7 @@ const renderOrders = () => {
     toggleBtn.type = "button";
     toggleBtn.className = `order-toggle${completed ? " done" : ""}`;
     toggleBtn.disabled = updatingOrderIds.has(idKey);
-    toggleBtn.textContent = completed ? "Marcar como abierto" : "Marcar como completado";
+    toggleBtn.textContent = completed ? "Cerrada" : "Abierto";
     toggleBtn.addEventListener("click", (event) => {
       event.stopPropagation();
       void updateCompletion(order, !completed);
