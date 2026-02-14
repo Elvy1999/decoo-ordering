@@ -626,6 +626,14 @@ a {
   color: rgba($color-black, 0.7);
 }
 
+.field__hint--legal {
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: rgba($color-black, 0.62);
+}
+
 .promo {
   display: flex;
   flex-direction: column;
