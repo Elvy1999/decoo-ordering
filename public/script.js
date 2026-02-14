@@ -2,7 +2,7 @@ const CART_KEY = "decoo_cart";
 const LEGACY_FREE_JUICE_PROMO_CART_KEY = "__promo_free_juice__";
 const FREE_JUICE_PROMO_CART_KEY_PREFIX = "__promo_free_juice__:";
 const FREE_JUICE_PROMO_TYPE = "FREE_JUICE";
-const FREE_JUICE_POPUP_DELAY_MS = 5000;
+const FREE_JUICE_POPUP_DELAY_MS = 3000;
 const EXCLUDED_FREE_JUICE_PROMO_NAMES = new Set(["morir sonando"]);
 
 let appSettings = null;

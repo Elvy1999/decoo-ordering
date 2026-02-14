@@ -1394,8 +1394,9 @@ p {
 
 .promo-popup__copy-note {
   margin: 0;
-  font-size: 0.82rem;
-  color: #6b5b4b;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #c62828;
 }
 
 .promo-popup__cta {
