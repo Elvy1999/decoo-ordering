@@ -1,5 +1,6 @@
 import { ok, fail, methodNotAllowed, supabaseServerClient } from "../shared.js";
 import { requireAdmin } from "./auth.js";
+import { sendOrderReadySms } from "../twilio.js";
 
 const ORDER_FIELDS =
   "id,created_at,order_code,customer_name,customer_phone,fulfillment_type,delivery_address,subtotal_cents,processing_fee_cents,delivery_fee_cents,total_cents,clover_order_id";
@@ -9,6 +10,8 @@ const parseId = (value) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
 };
+
+const normalizeStatus = (value) => String(value || "").trim().toLowerCase();
 
 export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
@@ -66,9 +69,24 @@ export default async function handler(req, res) {
 
     try {
       const supabase = supabaseServerClient();
+      const nextStatus = body.status.trim();
+
+      const { data: existingOrder, error: existingOrderError } = await supabase
+        .from("orders")
+        .select("id,status")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (existingOrderError) throw existingOrderError;
+      if (!existingOrder) {
+        return fail(res, 404, "NOT_FOUND", "Order not found.");
+      }
+
+      const previousStatus = normalizeStatus(existingOrder.status);
+
       const { data, error } = await supabase
         .from("orders")
-        .update({ status: body.status.trim() })
+        .update({ status: nextStatus })
         .eq("id", id)
         .select("id,status")
         .single();
@@ -78,6 +96,13 @@ export default async function handler(req, res) {
           return fail(res, 400, "STATUS_NOT_SUPPORTED", "Order status is not supported in this database.");
         }
         throw error;
+      }
+
+      const updatedStatus = normalizeStatus(data?.status || nextStatus);
+      const transitionedToCompleted = previousStatus !== "completed" && updatedStatus === "completed";
+      if (transitionedToCompleted) {
+        // Best-effort async send; admin response should not depend on SMS provider.
+        void sendOrderReadySms(supabase, id);
       }
 
       return ok(res, data);

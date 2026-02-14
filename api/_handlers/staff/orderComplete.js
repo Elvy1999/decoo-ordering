@@ -1,5 +1,5 @@
 import { ok, fail, methodNotAllowed, supabaseServerClient } from "../shared.js";
-import { sendOrderCompletedSms } from "../twilio.js";
+import { sendOrderReadySms } from "../twilio.js";
 import { requireStaff } from "./auth.js";
 
 function parseId(value) {
@@ -21,6 +21,8 @@ function getBodyObject(req) {
   return {};
 }
 
+const normalizeStatus = (value) => String(value || "").trim().toLowerCase();
+
 export default async function handler(req, res) {
   if (!requireStaff(req, res)) return;
   if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
@@ -37,6 +39,17 @@ export default async function handler(req, res) {
 
   try {
     const supabase = supabaseServerClient();
+
+    const { data: existingOrder, error: existingOrderError } = await supabase
+      .from("orders")
+      .select("id,status")
+      .eq("id", id)
+      .maybeSingle();
+    if (existingOrderError) throw existingOrderError;
+    if (!existingOrder) return fail(res, 404, "NOT_FOUND", "Order not found.");
+
+    const previousStatus = normalizeStatus(existingOrder.status);
+
     const { data, error } = await supabase
       .from("orders")
       .update({
@@ -49,14 +62,11 @@ export default async function handler(req, res) {
 
     if (error) throw error;
 
-    // If the staff marked the order as completed, send an SMS notification to the customer (best-effort).
-    if (nextStatus === "completed") {
-      try {
-        // fire-and-forget but await to log errors without blocking response on SMS failures
-        await sendOrderCompletedSms(supabase, id);
-      } catch (e) {
-        console.error("Failed sending order completed SMS:", e);
-      }
+    const updatedStatus = normalizeStatus(data?.status || nextStatus);
+    const transitionedToCompleted = previousStatus !== "completed" && updatedStatus === "completed";
+    if (transitionedToCompleted) {
+      // Best-effort async send; completion response should not depend on SMS provider.
+      void sendOrderReadySms(supabase, id);
     }
 
     return ok(res, data);

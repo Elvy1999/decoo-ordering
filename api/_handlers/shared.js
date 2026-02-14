@@ -76,6 +76,30 @@ export function isNonEmptyString(value) {
 }
 
 export const digitsOnly = (phone) => String(phone || "").replace(/\D/g, "");
+export function normalizePhoneToE164(phone) {
+  const raw = String(phone || "").trim();
+  if (!raw) return null;
+
+  // Keep one leading '+' if provided, strip all other non-digit characters.
+  if (raw.startsWith("+")) {
+    const digits = raw.replace(/[^\d]/g, "");
+    if (digits.length < 8 || digits.length > 15) return null;
+    return `+${digits}`;
+  }
+
+  const digits = digitsOnly(raw);
+  if (!digits) return null;
+
+  // US defaults: 10-digit local -> +1XXXXXXXXXX
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+
+  // If caller entered a full international number without '+', preserve it.
+  if (digits.length >= 11 && digits.length <= 15) return `+${digits}`;
+
+  return null;
+}
+
 export function isValidPhone(phone) {
   if (!isNonEmptyString(phone)) return false;
   const trimmed = phone.trim();

@@ -5,6 +5,7 @@ import {
   supabaseServerClient,
   fetchSettings,
   isValidPhone,
+  normalizePhoneToE164,
   toCents,
   geocodeAddressMapbox,
   haversineMiles,
@@ -16,6 +17,7 @@ import {
   MAX_TOTAL_QTY,
   MAX_UNIQUE_ITEMS,
 } from "./shared.js";
+import { sendOrderPlacedSms } from "./twilio.js";
 
 const FREE_JUICE_PROMO_TYPE = "FREE_JUICE";
 const EXCLUDED_FREE_JUICE_PROMO_NAMES = new Set(["morir sonando"]);
@@ -183,6 +185,7 @@ export default async function handler(req, res) {
   }
 
   const { customer_name, customer_phone, fulfillment_type } = req.body;
+  const normalizedCustomerPhone = normalizePhoneToE164(customer_phone) || String(customer_phone || "").trim();
   const normalizedDeliveryAddress = validation.normalizedDeliveryAddress;
   const promo_code = typeof req.body.promo_code === "string" ? req.body.promo_code.trim().toUpperCase() : "";
   const normalizedItems = validation.normalizedItems;
@@ -384,7 +387,7 @@ export default async function handler(req, res) {
       .from("orders")
       .insert({
         customer_name,
-        customer_phone,
+        customer_phone: normalizedCustomerPhone,
         fulfillment_type,
         delivery_address: normalizedDeliveryAddress,
         subtotal_cents: subtotalCents,
@@ -433,6 +436,9 @@ export default async function handler(req, res) {
       orderLog.free_juice_promo = true;
     }
     console.log("[order]", orderLog);
+
+    // Best-effort: do not block checkout response on SMS provider latency/failure.
+    void sendOrderPlacedSms(supabase, order.id);
 
     return ok(res, {
       ok: true,
