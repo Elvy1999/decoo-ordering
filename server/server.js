@@ -33,6 +33,7 @@ const MAX_UNIQUE_ITEMS = 30;
 const MAX_ITEM_QTY = 20;
 const MAX_TOTAL_QTY = 50;
 const FREE_JUICE_PROMO_TYPE = "FREE_JUICE";
+const EXCLUDED_FREE_JUICE_PROMO_NAMES = new Set(["morir sonando"]);
 
 const digitsOnly = (phone) => String(phone || "").replace(/\D/g, "");
 const isValidPhone = (phone) => {
@@ -56,6 +57,15 @@ const normalizeCategory = (value) =>
     .toLowerCase();
 
 const isJuicesCategoryMenuItem = (menuItem) => normalizeCategory(menuItem?.category) === "juices";
+const normalizePromoJuiceName = (value) =>
+  String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+const isExcludedFreeJuicePromoItem = (menuItem) =>
+  EXCLUDED_FREE_JUICE_PROMO_NAMES.has(normalizePromoJuiceName(menuItem?.name));
 
 const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN;
 const RESTAURANT_LAT = Number(process.env.RESTAURANT_LAT);
@@ -445,10 +455,16 @@ app.post("/api/orders", async (req, res) => {
         promoMenuItem = promoItemData || null;
       }
 
-      if (!promoMenuItem || !promoMenuItem.is_active || !promoMenuItem.in_stock || !isJuicesCategoryMenuItem(promoMenuItem)) {
+      if (
+        !promoMenuItem ||
+        !promoMenuItem.is_active ||
+        !promoMenuItem.in_stock ||
+        !isJuicesCategoryMenuItem(promoMenuItem) ||
+        isExcludedFreeJuicePromoItem(promoMenuItem)
+      ) {
         return res.status(400).json({
           ok: false,
-          error: "Selected free juice must be an active in-stock menu item in category 'Juices'.",
+          error: "Selected free juice must be an eligible active in-stock menu item in category 'Juices'.",
         });
       }
 

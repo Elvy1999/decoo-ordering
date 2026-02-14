@@ -3,6 +3,7 @@ const LEGACY_FREE_JUICE_PROMO_CART_KEY = "__promo_free_juice__";
 const FREE_JUICE_PROMO_CART_KEY_PREFIX = "__promo_free_juice__:";
 const FREE_JUICE_PROMO_TYPE = "FREE_JUICE";
 const FREE_JUICE_POPUP_DELAY_MS = 5000;
+const EXCLUDED_FREE_JUICE_PROMO_NAMES = new Set(["morir sonando"]);
 
 let appSettings = null;
 let itemById = {};
@@ -33,6 +34,13 @@ const REGULAR_ORDER = ["Beef & Cheese", "Chicken & Cheese", "3 Cheese", "Pork & 
 const normalizeName = (value) =>
   String(value || "")
     .trim()
+    .toLowerCase();
+const normalizePromoJuiceName = (value) =>
+  String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .replace(/\s+/g, " ")
     .toLowerCase();
 const normalizeCategory = (value) =>
   String(value || "")
@@ -206,10 +214,12 @@ const getFreeJuicePromoConfig = () => {
 };
 
 const isJuicesCategoryMenuItem = (menuItem) => normalizeCategory(menuItem?.category) === "juices";
+const isExcludedFreeJuicePromoItem = (menuItem) =>
+  EXCLUDED_FREE_JUICE_PROMO_NAMES.has(normalizePromoJuiceName(menuItem?.name));
 
 const getJuicesCategoryMenuItems = () =>
   menuItems
-    .filter((item) => isJuicesCategoryMenuItem(item))
+    .filter((item) => isJuicesCategoryMenuItem(item) && !isExcludedFreeJuicePromoItem(item))
     .sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
 
 const getFreeJuicePromoDisplayName = () => "Free Natural Juice";
@@ -236,7 +246,8 @@ const applyFreeJuicePromo = (cartState) => {
     if (!Number.isInteger(selectedItemId) || selectedItemId <= 0) return false;
     const selectedItem = itemById[String(selectedItemId)];
     if (!selectedItem || selectedItem.inStock === false) return false;
-    return isJuicesCategoryMenuItem(selectedItem);
+    if (!isJuicesCategoryMenuItem(selectedItem)) return false;
+    return !isExcludedFreeJuicePromoItem(selectedItem);
   });
 
   const selectedLineId = validPromoLineIds[0] || null;

@@ -18,6 +18,7 @@ import {
 } from "./shared.js";
 
 const FREE_JUICE_PROMO_TYPE = "FREE_JUICE";
+const EXCLUDED_FREE_JUICE_PROMO_NAMES = new Set(["morir sonando"]);
 
 const normalizeCategory = (value) =>
   String(value || "")
@@ -27,6 +28,15 @@ const normalizeCategory = (value) =>
     .toLowerCase();
 
 const isJuicesCategoryMenuItem = (menuItem) => normalizeCategory(menuItem?.category) === "juices";
+const normalizePromoJuiceName = (value) =>
+  String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+const isExcludedFreeJuicePromoItem = (menuItem) =>
+  EXCLUDED_FREE_JUICE_PROMO_NAMES.has(normalizePromoJuiceName(menuItem?.name));
 
 function normalizeDeliveryAddress(raw) {
   const input = String(raw || "").trim();
@@ -251,12 +261,18 @@ export default async function handler(req, res) {
         promoMenuItem = promoItemData || null;
       }
 
-      if (!promoMenuItem || !promoMenuItem.is_active || !promoMenuItem.in_stock || !isJuicesCategoryMenuItem(promoMenuItem)) {
+      if (
+        !promoMenuItem ||
+        !promoMenuItem.is_active ||
+        !promoMenuItem.in_stock ||
+        !isJuicesCategoryMenuItem(promoMenuItem) ||
+        isExcludedFreeJuicePromoItem(promoMenuItem)
+      ) {
         return fail(
           res,
           400,
           "INVALID_FREE_JUICE",
-          "Selected free juice must be an active in-stock menu item in category 'Juices'.",
+          "Selected free juice must be an eligible active in-stock menu item in category 'Juices'.",
         );
       }
 
