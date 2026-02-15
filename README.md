@@ -1,6 +1,7 @@
 # DecoO Ordering
 
 Online ordering app for DecoO Restaurant with:
+
 - customer checkout flow
 - Supabase-backed menu/orders/settings
 - Clover payment integration
@@ -125,6 +126,7 @@ npx vercel dev
 ```
 
 Then open:
+
 - `http://localhost:3000/` (customer site)
 
 ## Legacy Express server (optional)
@@ -142,6 +144,7 @@ Use this only if you explicitly want the legacy Node server flow.
 ## Deployment
 
 This project is structured for Vercel:
+
 - `public/` serves static assets
 - `api/` contains serverless endpoints
 
