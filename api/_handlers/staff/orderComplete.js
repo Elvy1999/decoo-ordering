@@ -1,6 +1,6 @@
 import { ok, fail, methodNotAllowed, supabaseServerClient } from "../shared.js";
-import { sendOrderReadySms } from "../twilio.js";
 import { requireStaff } from "./auth.js";
+import { queueOrderTransitionSms } from "../orderSmsTransitions.js";
 
 function parseId(value) {
   const num = Number(value);
@@ -21,8 +21,6 @@ function getBodyObject(req) {
   return {};
 }
 
-const normalizeStatus = (value) => String(value || "").trim().toLowerCase();
-
 export default async function handler(req, res) {
   if (!requireStaff(req, res)) return;
   if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
@@ -35,20 +33,18 @@ export default async function handler(req, res) {
     return fail(res, 400, "VALIDATION_ERROR", "completed must be a boolean.");
   }
 
-  const nextStatus = body.completed ? "completed" : "paid";
+  const nextStatus = body.completed ? "completed" : "new";
 
   try {
     const supabase = supabaseServerClient();
 
     const { data: existingOrder, error: existingOrderError } = await supabase
       .from("orders")
-      .select("id,status")
+      .select("id,status,payment_status,confirmation_sms_sent,ready_sms_sent")
       .eq("id", id)
       .maybeSingle();
     if (existingOrderError) throw existingOrderError;
     if (!existingOrder) return fail(res, 404, "NOT_FOUND", "Order not found.");
-
-    const previousStatus = normalizeStatus(existingOrder.status);
 
     const { data, error } = await supabase
       .from("orders")
@@ -57,17 +53,12 @@ export default async function handler(req, res) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
-      .select("id,status")
+      .select("id,status,payment_status,confirmation_sms_sent,ready_sms_sent")
       .single();
 
     if (error) throw error;
 
-    const updatedStatus = normalizeStatus(data?.status || nextStatus);
-    const transitionedToCompleted = previousStatus !== "completed" && updatedStatus === "completed";
-    if (transitionedToCompleted) {
-      // Best-effort async send; completion response should not depend on SMS provider.
-      void sendOrderReadySms(supabase, id);
-    }
+    queueOrderTransitionSms({ supabase, oldOrder: existingOrder, newOrder: data });
 
     return ok(res, data);
   } catch (err) {

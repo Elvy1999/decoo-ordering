@@ -497,7 +497,7 @@ const updateCompletion = async (order, completed) => {
       body: { completed },
     });
     const nextStatus =
-      typeof updated?.status === "string" ? updated.status : completed ? "completed" : "paid";
+      typeof updated?.status === "string" ? updated.status : completed ? "completed" : "new";
     orders = orders.map((row) => (String(row.id) === idKey ? { ...row, status: nextStatus } : row));
     showToast(completed ? "Marcado como completado" : "Marcado como abierto");
   } catch (error) {

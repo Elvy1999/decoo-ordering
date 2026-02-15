@@ -9,6 +9,7 @@ import {
 } from "../../_handlers/shared.js";
 import { getValidCloverAccessToken, resolveCloverMerchantId } from "../../_lib/cloverAuth.js";
 import { createCloverOrder, addOnlineOrderLineItem, printCloverOrder } from "../../_lib/cloverOrders.js";
+import { queueOrderTransitionSms } from "../../_handlers/orderSmsTransitions.js";
 
 const CLOVER_ECOMM_BASE = "https://scl.clover.com";
 
@@ -197,13 +198,21 @@ export default async function handler(req, res) {
   const supabase = supabaseServerClient();
 
   try {
-    const { data: order, error: orderError } = await supabase
+    const baseOrderSelect =
+      "id,payment_status,total_cents,subtotal_cents,processing_fee_cents,delivery_fee_cents,discount_cents,promo_code,order_code,customer_name,customer_phone,fulfillment_type,delivery_address,clover_payment_id,clover_order_id,confirmation_sms_sent,ready_sms_sent";
+    const orderSelectWithStatus = `${baseOrderSelect},status`;
+
+    let { data: order, error: orderError } = await supabase
       .from("orders")
-      .select(
-        "id,payment_status,total_cents,subtotal_cents,processing_fee_cents,delivery_fee_cents,discount_cents,promo_code,order_code,customer_name,customer_phone,fulfillment_type,delivery_address,clover_payment_id,clover_order_id",
-      )
+      .select(orderSelectWithStatus)
       .eq("id", orderId)
       .single();
+
+    if (orderError && typeof orderError.message === "string" && orderError.message.toLowerCase().includes("status")) {
+      const fallback = await supabase.from("orders").select(baseOrderSelect).eq("id", orderId).single();
+      order = fallback.data;
+      orderError = fallback.error;
+    }
 
     if (orderError) {
       const message = String(orderError.message || "");
@@ -404,23 +413,39 @@ export default async function handler(req, res) {
     }
 
     const paymentId = payData?.id || payData?.payment?.id || payData?.charge?.id || null;
+    const previousOrderState = {
+      id: order.id,
+      payment_status: order.payment_status,
+      status: order.status,
+      confirmation_sms_sent: order.confirmation_sms_sent,
+      ready_sms_sent: order.ready_sms_sent,
+    };
 
-    const { error: paidError } = await supabase
+    const paidAtIso = new Date().toISOString();
+    const paymentUpdate = await supabase
       .from("orders")
       .update({
         payment_status: "paid",
-        paid_at: new Date().toISOString(),
+        paid_at: paidAtIso,
         clover_payment_id: paymentId,
       })
-      .eq("id", order.id);
+      .eq("id", order.id)
+      .select("id,payment_status,status,confirmation_sms_sent,ready_sms_sent")
+      .maybeSingle();
 
-    if (paidError) {
+    if (paymentUpdate.error) {
       console.error("[payment] Failed to update order payment status", {
         order_id: order.id,
-        error: paidError,
+        error: paymentUpdate.error,
       });
-      throw paidError;
+      throw paymentUpdate.error;
     }
+
+    queueOrderTransitionSms({
+      supabase,
+      oldOrder: previousOrderState,
+      newOrder: paymentUpdate.data,
+    });
 
     // Increment promo usage only after successful payment status update.
     if (order.promo_code && toNumber(order.discount_cents) > 0) {

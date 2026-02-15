@@ -5,8 +5,13 @@ const MAX_SMS_BODY_CHARS = 1600;
 const SMS_ITEM_NAME_MAX_CHARS = 72;
 const SMS_MORE_ITEMS_LINE = "(+ more items)";
 
-const ORDER_SELECT_WITH_SMS_FLAGS = "id,customer_phone,total_cents,placed_sms_sent,ready_sms_sent";
+const ORDER_SELECT_WITH_SMS_FLAGS = "id,customer_phone,total_cents,confirmation_sms_sent,ready_sms_sent";
+const ORDER_SELECT_WITH_LEGACY_SMS_FLAGS = "id,customer_phone,total_cents,placed_sms_sent,ready_sms_sent";
 const ORDER_SELECT_FALLBACK = "id,customer_phone,total_cents";
+
+const SMS_FLAG_MODE_NONE = "none";
+const SMS_FLAG_MODE_MODERN = "modern";
+const SMS_FLAG_MODE_LEGACY = "legacy";
 
 function getTwilioClientOrThrow() {
   const sid = process.env.TWILIO_ACCOUNT_SID;
@@ -55,9 +60,10 @@ function aggregateOrderItems(orderItems) {
   return Array.from(byName.values());
 }
 
-function buildPlacedSmsBody(orderId, totalCents, groupedItems) {
-  const header = `Decoo Restaurant — Order #${orderId}`;
+function buildConfirmationSmsBody(orderId, totalCents, groupedItems) {
+  const header = `Order #${orderId} confirmed!`;
   const totalLine = `Total: $${toMoneyString(totalCents)}`;
+  const footer = "Thank you for ordering Decoo Restaurant!";
 
   const itemLines = groupedItems.map((row) => {
     const name = clipText(row.item_name, SMS_ITEM_NAME_MAX_CHARS) || "Item";
@@ -65,23 +71,29 @@ function buildPlacedSmsBody(orderId, totalCents, groupedItems) {
     return `${name} * ${qty}`;
   });
 
-  const full = [header, ...itemLines, totalLine].join("\n");
+  const renderMessage = (lines, includeMoreItemsLine = false) => {
+    const combinedItemLines = includeMoreItemsLine ? [...lines, SMS_MORE_ITEMS_LINE] : lines;
+    const itemsBlock = combinedItemLines.join("\n");
+    return [header, "", itemsBlock, "", totalLine, "", footer].join("\n");
+  };
+
+  const full = renderMessage(itemLines, false);
   if (full.length <= MAX_SMS_BODY_CHARS) return full;
 
   // Keep top lines and append a short indicator when the message is too long.
   const keptLines = [...itemLines];
   while (keptLines.length > 0) {
-    const candidate = [header, ...keptLines, SMS_MORE_ITEMS_LINE, totalLine].join("\n");
+    const candidate = renderMessage(keptLines, true);
     if (candidate.length <= MAX_SMS_BODY_CHARS) return candidate;
     keptLines.pop();
   }
 
-  const smallest = [header, SMS_MORE_ITEMS_LINE, totalLine].join("\n");
+  const smallest = renderMessage([], true);
   return smallest.length <= MAX_SMS_BODY_CHARS ? smallest : clipText(smallest, MAX_SMS_BODY_CHARS);
 }
 
 function buildReadySmsBody(orderId) {
-  return `Decoo Restaurant: Your order #${orderId} is ready for pickup. See you soon!`;
+  return [`Order #${orderId} is ready for pickup!`, "", "Thank you for choosing Decoo Restaurant."].join("\n");
 }
 
 function sleep(ms) {
@@ -91,10 +103,35 @@ function sleep(ms) {
 async function loadOrderForSms(supabase, orderId) {
   const primary = await supabase.from("orders").select(ORDER_SELECT_WITH_SMS_FLAGS).eq("id", orderId).maybeSingle();
   if (!primary.error) {
-    return { order: primary.data || null, hasSmsFlags: true };
+    return { order: primary.data || null, flagMode: SMS_FLAG_MODE_MODERN };
   }
 
-  if (isMissingColumnError(primary.error, "placed_sms_sent") || isMissingColumnError(primary.error, "ready_sms_sent")) {
+  if (isMissingColumnError(primary.error, "confirmation_sms_sent") || isMissingColumnError(primary.error, "ready_sms_sent")) {
+    const legacy = await supabase
+      .from("orders")
+      .select(ORDER_SELECT_WITH_LEGACY_SMS_FLAGS)
+      .eq("id", orderId)
+      .maybeSingle();
+
+    if (!legacy.error) {
+      if (legacy.data) {
+        console.warn("[sms] confirmation_sms_sent column is missing; using legacy placed_sms_sent column.");
+      }
+      return {
+        order: legacy.data
+          ? {
+              ...legacy.data,
+              confirmation_sms_sent: legacy.data.placed_sms_sent === true,
+            }
+          : null,
+        flagMode: SMS_FLAG_MODE_LEGACY,
+      };
+    }
+
+    if (!isMissingColumnError(legacy.error, "placed_sms_sent") && !isMissingColumnError(legacy.error, "ready_sms_sent")) {
+      throw legacy.error;
+    }
+
     const fallback = await supabase.from("orders").select(ORDER_SELECT_FALLBACK).eq("id", orderId).maybeSingle();
     if (fallback.error) throw fallback.error;
 
@@ -104,41 +141,73 @@ async function loadOrderForSms(supabase, orderId) {
 
     return {
       order: fallback.data
-        ? { ...fallback.data, placed_sms_sent: false, ready_sms_sent: false }
+        ? { ...fallback.data, confirmation_sms_sent: false, ready_sms_sent: false }
         : null,
-      hasSmsFlags: false,
+      flagMode: SMS_FLAG_MODE_NONE,
     };
   }
 
   throw primary.error;
 }
 
-async function markSmsSent(supabase, orderId, type, hasSmsFlags) {
-  if (!hasSmsFlags) return { ok: false, skipped: "missing-sms-columns" };
+function hasMissingColumnError(error, columns) {
+  for (const col of columns) {
+    if (isMissingColumnError(error, col)) return true;
+  }
+  return false;
+}
+
+async function updateSmsFlag(supabase, orderId, payload, flagColumn) {
+  const { error } = await supabase.from("orders").update(payload).eq("id", orderId).eq(flagColumn, false);
+  return { ok: !error, error };
+}
+
+async function markSmsSent(supabase, orderId, type, flagMode) {
+  if (flagMode === SMS_FLAG_MODE_NONE) return { ok: false, skipped: "missing-sms-columns" };
 
   const nowIso = new Date().toISOString();
-  const isPlaced = type === "placed";
-  const flagColumn = isPlaced ? "placed_sms_sent" : "ready_sms_sent";
-  const payload = isPlaced
-    ? { placed_sms_sent: true, placed_sms_sent_at: nowIso }
-    : { ready_sms_sent: true, ready_sms_sent_at: nowIso };
 
-  const { error } = await supabase.from("orders").update(payload).eq("id", orderId).eq(flagColumn, false);
-
-  if (error) {
-    if (
-      isMissingColumnError(error, "placed_sms_sent") ||
-      isMissingColumnError(error, "ready_sms_sent") ||
-      isMissingColumnError(error, "placed_sms_sent_at") ||
-      isMissingColumnError(error, "ready_sms_sent_at")
-    ) {
-      console.warn("[sms] orders SMS sent columns are missing; run SMS migration for idempotency.");
-      return { ok: false, skipped: "missing-sms-columns" };
+  if (type === "confirmation") {
+    const attempts = [];
+    if (flagMode === SMS_FLAG_MODE_MODERN) {
+      attempts.push({
+        flagColumn: "confirmation_sms_sent",
+        payload: { confirmation_sms_sent: true, confirmation_sms_sent_at: nowIso },
+        columns: ["confirmation_sms_sent", "confirmation_sms_sent_at"],
+      });
     }
-    throw error;
+
+    attempts.push({
+      flagColumn: "placed_sms_sent",
+      payload: { placed_sms_sent: true, placed_sms_sent_at: nowIso },
+      columns: ["placed_sms_sent", "placed_sms_sent_at"],
+    });
+
+    for (const attempt of attempts) {
+      const result = await updateSmsFlag(supabase, orderId, attempt.payload, attempt.flagColumn);
+      if (result.ok) return { ok: true };
+      if (hasMissingColumnError(result.error, [attempt.flagColumn, ...attempt.columns])) continue;
+      throw result.error;
+    }
+
+    console.warn("[sms] orders confirmation SMS columns are missing; run SMS migration for idempotency.");
+    return { ok: false, skipped: "missing-sms-columns" };
   }
 
-  return { ok: true };
+  const readyResult = await updateSmsFlag(
+    supabase,
+    orderId,
+    { ready_sms_sent: true, ready_sms_sent_at: nowIso },
+    "ready_sms_sent",
+  );
+  if (readyResult.ok) return { ok: true };
+
+  if (hasMissingColumnError(readyResult.error, ["ready_sms_sent", "ready_sms_sent_at"])) {
+    console.warn("[sms] orders ready SMS columns are missing; run SMS migration for idempotency.");
+    return { ok: false, skipped: "missing-sms-columns" };
+  }
+
+  throw readyResult.error;
 }
 
 async function sendSmsWithRetry(to, body, maxAttempts = 3) {
@@ -163,16 +232,17 @@ export async function sendSms(to, body) {
   return sendSmsWithRetry(to, body, 1);
 }
 
-export async function sendOrderPlacedSms(supabase, orderId) {
+export async function sendOrderConfirmationSms(supabase, orderId) {
   if (!orderId || !supabase) return { ok: false, skipped: "invalid-input" };
   try {
-    const { order, hasSmsFlags } = await loadOrderForSms(supabase, orderId);
+    const { order, flagMode } = await loadOrderForSms(supabase, orderId);
+    const hasSmsFlags = flagMode !== SMS_FLAG_MODE_NONE;
     if (!order) return { ok: false, skipped: "order-not-found" };
-    if (hasSmsFlags && order.placed_sms_sent === true) return { ok: true, skipped: "already-sent" };
+    if (hasSmsFlags && order.confirmation_sms_sent === true) return { ok: true, skipped: "already-sent" };
 
     const normalizedPhone = normalizePhoneToE164(order.customer_phone);
     if (!normalizedPhone) {
-      console.warn("[sms] skipped placed SMS due to missing or invalid customer_phone", { order_id: orderId });
+      console.warn("[sms] skipped confirmation SMS due to missing or invalid customer_phone", { order_id: orderId });
       return { ok: false, skipped: "invalid-phone" };
     }
 
@@ -184,11 +254,19 @@ export async function sendOrderPlacedSms(supabase, orderId) {
     if (orderItemsError) throw orderItemsError;
 
     const groupedItems = aggregateOrderItems(orderItems);
-    const body = buildPlacedSmsBody(order.id, order.total_cents, groupedItems);
+    const body = buildConfirmationSmsBody(order.id, order.total_cents, groupedItems);
     const sent = await sendSmsWithRetry(normalizedPhone, body, 3);
 
-    await markSmsSent(supabase, order.id, "placed", hasSmsFlags);
-    console.log("[sms] placed message sent", {
+    const markResult = await markSmsSent(supabase, order.id, "confirmation", flagMode);
+    if (!markResult.ok) {
+      console.warn("[sms] confirmation SMS sent but flag update skipped", {
+        order_id: order.id,
+        skipped: markResult.skipped || null,
+      });
+      return { ok: false, error: "SMS_FLAG_UPDATE_FAILED", sid: sent?.sid || null };
+    }
+
+    console.log("[sms] confirmation message sent", {
       order_id: order.id,
       to: normalizedPhone,
       provider_message_id: sent?.sid || null,
@@ -196,7 +274,7 @@ export async function sendOrderPlacedSms(supabase, orderId) {
 
     return { ok: true, sid: sent?.sid || null };
   } catch (err) {
-    console.error("[sms] failed to send placed order SMS", {
+    console.error("[sms] failed to send order confirmation SMS", {
       order_id: orderId,
       error: err?.message || err,
     });
@@ -207,7 +285,8 @@ export async function sendOrderPlacedSms(supabase, orderId) {
 export async function sendOrderReadySms(supabase, orderId) {
   if (!orderId || !supabase) return { ok: false, skipped: "invalid-input" };
   try {
-    const { order, hasSmsFlags } = await loadOrderForSms(supabase, orderId);
+    const { order, flagMode } = await loadOrderForSms(supabase, orderId);
+    const hasSmsFlags = flagMode !== SMS_FLAG_MODE_NONE;
     if (!order) return { ok: false, skipped: "order-not-found" };
     if (hasSmsFlags && order.ready_sms_sent === true) return { ok: true, skipped: "already-sent" };
 
@@ -219,7 +298,14 @@ export async function sendOrderReadySms(supabase, orderId) {
 
     const body = buildReadySmsBody(order.id);
     const sent = await sendSmsWithRetry(normalizedPhone, body, 3);
-    await markSmsSent(supabase, order.id, "ready", hasSmsFlags);
+    const markResult = await markSmsSent(supabase, order.id, "ready", flagMode);
+    if (!markResult.ok) {
+      console.warn("[sms] ready SMS sent but flag update skipped", {
+        order_id: order.id,
+        skipped: markResult.skipped || null,
+      });
+      return { ok: false, error: "SMS_FLAG_UPDATE_FAILED", sid: sent?.sid || null };
+    }
 
     console.log("[sms] ready message sent", {
       order_id: order.id,
@@ -236,6 +322,9 @@ export async function sendOrderReadySms(supabase, orderId) {
     return { ok: false, error: err?.message || "SMS_SEND_FAILED" };
   }
 }
+
+// Backward-compatible export name used in existing handlers.
+export const sendOrderPlacedSms = sendOrderConfirmationSms;
 
 // Backward-compatible export name used in existing handlers.
 export const sendOrderCompletedSms = sendOrderReadySms;

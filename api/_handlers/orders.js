@@ -17,7 +17,6 @@ import {
   MAX_TOTAL_QTY,
   MAX_UNIQUE_ITEMS,
 } from "./shared.js";
-import { sendOrderPlacedSms } from "./twilio.js";
 
 const FREE_JUICE_PROMO_TYPE = "FREE_JUICE";
 const EXCLUDED_FREE_JUICE_PROMO_NAMES = new Set(["morir sonando"]);
@@ -398,6 +397,7 @@ export default async function handler(req, res) {
         total_cents: totalCents,
         order_code: orderCode,
         payment_status: "unpaid",
+        status: "new",
       })
       .select("id,order_code,total_cents")
       .single();
@@ -436,9 +436,6 @@ export default async function handler(req, res) {
       orderLog.free_juice_promo = true;
     }
     console.log("[order]", orderLog);
-
-    // Best-effort: do not block checkout response on SMS provider latency/failure.
-    void sendOrderPlacedSms(supabase, order.id);
 
     return ok(res, {
       ok: true,

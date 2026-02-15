@@ -1,6 +1,6 @@
 import { ok, fail, methodNotAllowed, supabaseServerClient } from "../shared.js";
 import { requireAdmin } from "./auth.js";
-import { sendOrderReadySms } from "../twilio.js";
+import { queueOrderTransitionSms } from "../orderSmsTransitions.js";
 
 const ORDER_FIELDS =
   "id,created_at,order_code,customer_name,customer_phone,fulfillment_type,delivery_address,subtotal_cents,processing_fee_cents,delivery_fee_cents,total_cents,clover_order_id";
@@ -10,8 +10,6 @@ const parseId = (value) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
 };
-
-const normalizeStatus = (value) => String(value || "").trim().toLowerCase();
 
 export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
@@ -73,7 +71,7 @@ export default async function handler(req, res) {
 
       const { data: existingOrder, error: existingOrderError } = await supabase
         .from("orders")
-        .select("id,status")
+        .select("id,status,payment_status,confirmation_sms_sent,ready_sms_sent")
         .eq("id", id)
         .maybeSingle();
 
@@ -81,14 +79,11 @@ export default async function handler(req, res) {
       if (!existingOrder) {
         return fail(res, 404, "NOT_FOUND", "Order not found.");
       }
-
-      const previousStatus = normalizeStatus(existingOrder.status);
-
       const { data, error } = await supabase
         .from("orders")
         .update({ status: nextStatus })
         .eq("id", id)
-        .select("id,status")
+        .select("id,status,payment_status,confirmation_sms_sent,ready_sms_sent")
         .single();
 
       if (error) {
@@ -98,12 +93,7 @@ export default async function handler(req, res) {
         throw error;
       }
 
-      const updatedStatus = normalizeStatus(data?.status || nextStatus);
-      const transitionedToCompleted = previousStatus !== "completed" && updatedStatus === "completed";
-      if (transitionedToCompleted) {
-        // Best-effort async send; admin response should not depend on SMS provider.
-        void sendOrderReadySms(supabase, id);
-      }
+      queueOrderTransitionSms({ supabase, oldOrder: existingOrder, newOrder: data });
 
       return ok(res, data);
     } catch (err) {
