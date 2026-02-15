@@ -1,4 +1,4 @@
-# DecoO Ordering
+# Decoo Ordering
 
 DecoO Ordering is a full-stack restaurant ordering platform I built to handle real operations, not just a demo checkout form. It combines customer ordering, staff workflows, live inventory controls, admin tools, payment processing, and SMS status updates in one end-to-end system.
 
