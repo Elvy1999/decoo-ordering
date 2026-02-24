@@ -1,0 +1,365 @@
+Decoo Ordering - Project Analysis
+=================================
+
+1) Project Purpose
+------------------
+Decoo Ordering is a production-oriented restaurant ordering platform that combines:
+- Customer ordering and checkout
+- Staff fulfillment workflow
+- Staff inventory control
+- Admin operations dashboard
+- Payment processing (Clover)
+- SMS lifecycle notifications (Twilio)
+- Delivery radius validation (Mapbox)
+
+The project is built as a serverless web app for Vercel with a Supabase/Postgres backend.
+
+
+2) High-Level Architecture
+--------------------------
+Frontend (public/)
+- Multi-page static UI:
+  - public/index.html + public/script.js: customer ordering and checkout
+  - public/staff.html + public/staff.js: staff order queue and completion
+  - public/inventory.html + public/inventory.js: staff inventory toggles
+  - public/admin.html + public/admin.js: admin settings/menu/orders/promos/stats
+
+Backend (api/)
+- Central catch-all router: api/[...route].js
+- Business handlers grouped under api/_handlers/
+- Admin and staff handlers split by role
+- Payment endpoints under api/payments/
+- Clover OAuth + POS helpers under api/clover/ and api/_lib/
+
+Data Layer
+- Supabase client with service role key for backend operations
+- Core tables used:
+  - settings
+  - menu_items
+  - orders
+  - order_items
+  - promo_codes
+  - clover_tokens
+  - oauth_states
+
+Integrations
+- Clover eCommerce API for card charging
+- Clover REST API for POS order sync and printing
+- Twilio for confirmation/ready SMS
+- Mapbox geocoding for delivery distance validation
+
+
+3) Routing and Request Flow Design
+----------------------------------
+Core router: api/[...route].js
+- Normalizes paths robustly from Vercel catch-all params and URL fallback.
+- Dispatches to feature handlers:
+  - /menu
+  - /orders
+  - /settings
+  - /health
+  - /validate-delivery
+  - /validate-promo
+  - /diag
+  - /staff/*
+  - /admin/*
+- Includes utility endpoints:
+  - /version
+  - /route-debug
+
+Design intent:
+- Keep route parsing centralized.
+- Keep business logic in dedicated handlers.
+- Preserve deploy flexibility with clean URL normalization.
+
+
+4) Shared Backend Foundation
+----------------------------
+api/_handlers/shared.js centralizes:
+- JSON response helpers (ok/fail/methodNotAllowed)
+- Validation constants for names, address lengths, quantity limits
+- Simple in-memory rate limiter by IP (instance-local)
+- Supabase server client creation and env checks
+- Phone normalization to E.164
+- Mapbox geocoding helper
+- Haversine distance calculation
+- settings row loader (single source of truth for operational toggles)
+
+Why this matters:
+- Shared validation and helpers reduce drift and duplicated logic.
+- Critical business limits are codified once and reused.
+
+
+5) Customer Ordering Pipeline
+-----------------------------
+A) Menu + settings load
+- Frontend fetches /api/settings and /api/menu at startup.
+- Menu availability respects is_active and in_stock.
+
+B) Cart and checkout state
+- Cart stored in localStorage (decoo_cart).
+- Strong cart sanitization removes invalid/out-of-stock items.
+- Promo-free juice line is represented as a special cart key and normalized.
+
+C) Pre-submit validation
+- Name/phone/order type/address/item validations in api/_handlers/orders.js.
+- Delivery:
+  - minimum order check
+  - geocoding + radius check using restaurant lat/lng env config
+
+D) Pricing + promo application
+- Server computes authoritative subtotal/fees/discount/total.
+- Promo codes validated from promo_codes table.
+- Free juice promotion eligibility computed from settings and subtotal.
+
+E) Order creation step
+- Creates order with:
+  - payment_status = unpaid
+  - status = new
+- Creates order_items rows.
+- Returns order id/code/total to frontend.
+
+F) Payment step
+- Frontend initializes Clover SDK, tokenizes card.
+- Backend endpoint: /api/payments/iframe/charge
+  - re-reads order from DB
+  - recomputes total and compares against stored + client totals
+  - charges via Clover eCom API
+  - updates order to payment_status = paid + paid_at
+  - queues SMS transition
+  - increments promo used_count after successful payment status update
+
+Key design choice:
+- Order record exists before payment.
+- Payment endpoint revalidates totals to prevent tampering/race issues.
+
+
+6) Payment and Clover Integration Design
+----------------------------------------
+Primary charge path (api/payments/iframe/charge.js)
+- Defensive checks:
+  - requires source token format clv_*
+  - validates required envs
+  - checks order existence and unpaid state
+  - verifies computed totals exactly
+- Uses idempotency keys for Clover API calls.
+- Handles timeout and provider failures cleanly.
+
+POS sync strategy
+- POS order create + line item + print runs asynchronously, best-effort.
+- Checkout response is not blocked by POS sync or print failures.
+- print_status / print_error updated to keep operational visibility.
+
+OAuth/token management
+- api/clover/connect.js starts OAuth and persists state cookie + DB fallback.
+- api/clover/callback.js validates state and exchanges OAuth code.
+- api/_lib/cloverAuth.js refreshes Clover access tokens and persists updates.
+
+Design intent:
+- Keep customer payment latency low.
+- Treat POS as operational side effect, not checkout blocker.
+
+
+7) SMS Transition Model (Reliability-Critical)
+----------------------------------------------
+Main modules:
+- api/_handlers/orderSmsTransitions.js
+- api/_handlers/twilio.js
+- supabase/orders_sms_flags.sql
+
+Trigger rules:
+- Confirmation SMS: only when payment_status transitions to paid.
+- Ready SMS: only when status transitions to completed.
+
+Idempotency:
+- Flags in orders table:
+  - confirmation_sms_sent
+  - ready_sms_sent
+  - *_sent_at timestamps
+- Legacy compatibility with placed_sms_sent columns retained.
+
+Failure behavior:
+- SMS send failures do not block order/payment/status updates.
+- Retries with backoff for provider calls.
+- Logs all failures and skip reasons.
+
+Design value:
+- Side effects are state-driven and idempotent.
+- Eliminates duplicate SMS risks from repeated updates/retries.
+
+
+8) Staff Workflow Design
+------------------------
+Backend staff access
+- Staff auth by Bearer token (STAFF_TOKEN).
+- Handlers:
+  - staff/orders.js: returns paid orders with joined order items
+  - staff/orderComplete.js: toggles new/completed, queues ready SMS transitions
+  - staff/inventorySections.js: grouped inventory view
+  - staff/inventoryToggle.js: in_stock updates
+
+Frontend staff app
+- Displays paid orders queue.
+- Supports status toggle (open/completed).
+- Polling + Supabase Realtime for freshness.
+- Audio alert on new paid orders.
+
+Design value:
+- Fast operational flow with minimal steps.
+- Separation from customer and admin endpoints reduces accidental cross-role access.
+
+
+9) Admin Workflow Design
+------------------------
+Security
+- x-admin-token header enforced by requireAdmin.
+
+Capabilities
+- Settings read/update (ordering flags, delivery, fees, free juice config)
+- Menu search/edit (price, stock, active, sort, badge, name/category)
+- Orders list + detail + status edits
+- Reprint requests for Clover POS orders
+- Promo code list/upsert
+- Sales summary dashboard (today, week-to-date, month-to-date, last 7 days)
+
+Data/analytics behavior
+- statsSummary computes aggregates from paid orders only.
+- Supports selected date query and normalized chart buckets.
+
+Design value:
+- Operational knobs and observability are built into the same deployment.
+
+
+10) Delivery and Promo Validation Services
+------------------------------------------
+/api/validate-delivery
+- Normalizes address
+- Geocodes via Mapbox
+- Computes miles from configured restaurant coordinates
+- Returns withinRadius + distance/radius metadata
+
+/api/validate-promo
+- Validates code status, starts_at, minimum order
+- Computes capped discount safely for flat/percent types
+- Returns canonical response used by frontend checkout
+
+Design value:
+- Reusable validation endpoints improve UX before final order submit.
+
+
+11) Database and State Model
+----------------------------
+Order state is split into two independent axes:
+- payment_status: unpaid -> paid
+- status: new -> completed
+
+This separation prevents conflating payment and fulfillment.
+It enables reliable transition hooks (SMS) and clearer ops workflows.
+
+Additional state notes:
+- print_status/print_error track POS print outcomes.
+- clover_payment_id / clover_order_id maintain external references.
+- promo usage increments post-payment to avoid false usage counts.
+
+
+12) Frontend Design Strategy
+----------------------------
+Customer UI (public/script.js)
+- Large single-file state machine for:
+  - cart persistence
+  - checkout step transitions
+  - promo application
+  - delivery checks
+  - Clover field lifecycle
+  - post-payment confirmation
+- Ensures backend remains source of truth for monetary totals.
+- Includes analytics purchase event emission after successful payment.
+
+Staff and inventory UIs
+- Token-gated lightweight operational pages.
+- Optimistic updates for toggles with rollback on failure.
+
+Admin UI
+- Token-gated control center with realtime refresh and sound alerts.
+
+Design value:
+- Role-specific interfaces keep each workflow focused and faster.
+
+
+13) Security and Operational Controls
+-------------------------------------
+Implemented controls
+- Role token checks for staff/admin endpoints.
+- Server-side validation for all sensitive operations.
+- Strict backend recomputation of payment totals.
+- Diagnostic and health endpoints for deployment verification.
+
+Potential hardening opportunities
+- Staff/admin tokens are static shared secrets (simple but coarse).
+- In-memory rate limit is per serverless instance only.
+- Some endpoints rely on broad service-role DB access (acceptable here, but tightly scoped DB policies would improve defense-in-depth).
+
+
+14) Notable Reliability Patterns
+--------------------------------
+- Best-effort side effects (SMS, POS sync/print) separated from critical path.
+- Backward compatibility for legacy DB columns and schema variance.
+- Fallback logic for status columns in older installs.
+- Detailed console logging around payment path for incident debugging.
+- Async POS sync to keep customer checkout response fast.
+
+
+15) Important Files to Know
+---------------------------
+Core routing
+- api/[...route].js
+
+Ordering and shared logic
+- api/_handlers/orders.js
+- api/_handlers/shared.js
+- api/_handlers/validateDelivery.js
+- api/_handlers/validatePromo.js
+
+Payments + Clover
+- api/payments/config.js
+- api/payments/iframe/charge.js
+- api/_lib/cloverAuth.js
+- api/_lib/cloverOrders.js
+- api/clover/connect.js
+- api/clover/callback.js
+
+SMS transitions
+- api/_handlers/orderSmsTransitions.js
+- api/_handlers/twilio.js
+- supabase/orders_sms_flags.sql
+
+Role modules
+- api/_handlers/staff/*
+- api/_handlers/admin/*
+- public/staff.js
+- public/inventory.js
+- public/admin.js
+
+Customer UX
+- public/index.html
+- public/script.js
+
+
+16) Observations and Small Risks
+--------------------------------
+- Audio file path in staff/admin scripts uses /backata.mp3, while project files include bachata.mp3.
+  This can break alert sound unless both files exist in deployment.
+- public/config.js exposes Supabase anon key and URL (normal for anon public key usage), but should still be monitored for misuse.
+- callback endpoint currently returns token-exchange diagnostics and may need tightening before broader production rollout.
+
+
+17) Overall Design Assessment
+-----------------------------
+This project is designed around operational reliability:
+- Explicit state transitions
+- Server-authoritative totals
+- Idempotent messaging
+- Role-isolated workflows
+- Graceful degradation for non-critical integrations
+
+The strongest engineering pattern is the separation of critical path (order/payment persistence) from best-effort side effects (SMS/POS print), which keeps customer checkout resilient while still supporting restaurant operations.

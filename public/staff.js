@@ -19,8 +19,8 @@ const supabaseLib = window.supabase;
 const createClient = supabaseLib?.createClient;
 
 const SOUND_START_SEC = 46;
-const SOUND_DURATION_SEC = 8;
-const orderSound = new Audio("/backata.mp3");
+const SOUND_DURATION_SEC = 6;
+const orderSound = new Audio("/bachata.mp3");
 orderSound.preload = "auto";
 orderSound.volume = 0.7;
 let soundStopTimer = null;
