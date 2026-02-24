@@ -23,7 +23,7 @@ const ADMIN_REPRINT_PATH = "/api/admin?route=reprint";
 
 const SOUND_START_SEC = 46;
 const SOUND_DURATION_SEC = 8;
-const orderSound = new Audio("/backata.mp3");
+const orderSound = new Audio("/bachata.mp3");
 orderSound.preload = "auto";
 orderSound.volume = 0.7;
 let soundStopTimer = null;

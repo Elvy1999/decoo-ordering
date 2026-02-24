@@ -35,6 +35,7 @@ let updatingOrderIds = new Set();
 let knownPaidOrderIds = new Set();
 let hasHydratedOrders = false;
 let pollTimer = null;
+let pollInFlight = null;
 let refreshDebounceTimer = null;
 let supabaseClient = null;
 let realtimeChannel = null;
@@ -94,6 +95,11 @@ const normalizeApiPath = (path) => {
   return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
 };
 
+const withNoCacheQuery = (path) => {
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}_ts=${Date.now()}`;
+};
+
 const apiFetch = async (path, { method = "GET", body, token, suppressUnauthorizedHandler = false } = {}) => {
   const headers = { Accept: "application/json" };
   const authToken = token ?? getToken();
@@ -105,7 +111,15 @@ const apiFetch = async (path, { method = "GET", body, token, suppressUnauthorize
     payload = JSON.stringify(body);
   }
 
-  const response = await fetch(normalizeApiPath(path), { method, headers, body: payload });
+  const normalizedPath = normalizeApiPath(path);
+  const upperMethod = String(method || "GET").toUpperCase();
+  const requestPath = upperMethod === "GET" ? withNoCacheQuery(normalizedPath) : normalizedPath;
+  const response = await fetch(requestPath, {
+    method: upperMethod,
+    headers,
+    body: payload,
+    cache: upperMethod === "GET" ? "no-store" : "default",
+  });
   const raw = await response.text();
 
   let data = null;
@@ -138,7 +152,11 @@ const fetchStaffOrders = async ({ token, suppressUnauthorizedHandler = false } =
   const authToken = token ?? getToken();
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
-  const response = await fetch("/api/staff/orders", { method: "GET", headers });
+  const response = await fetch(withNoCacheQuery("/api/staff/orders"), {
+    method: "GET",
+    headers,
+    cache: "no-store",
+  });
   const raw = await response.text();
 
   let data = null;
@@ -441,6 +459,9 @@ const applyOrders = (nextOrders) => {
 
 // Poll once and detect newest paid order; handles alerting via sound once per new order.
 const pollOnce = async ({ silent = false } = {}) => {
+  if (pollInFlight) return pollInFlight;
+
+  pollInFlight = (async () => {
   try {
     const data = await fetchStaffOrders();
     // apply orders for rendering
@@ -477,7 +498,12 @@ const pollOnce = async ({ silent = false } = {}) => {
     }
   } catch (error) {
     if (!silent) showToast(error.message || "No se pudieron cargar los pedidos", "error");
+  } finally {
+    pollInFlight = null;
   }
+  })();
+
+  return pollInFlight;
 };
 
 const loadOrders = async ({ silent = false } = {}) => {
@@ -576,6 +602,7 @@ const stopLiveUpdates = () => {
     clearInterval(pollTimer);
     pollTimer = null;
   }
+  pollInFlight = null;
   if (refreshDebounceTimer) {
     clearTimeout(refreshDebounceTimer);
     refreshDebounceTimer = null;
@@ -605,9 +632,9 @@ const startAuthedSession = async (token, { showWelcome = false } = {}) => {
   await validateToken(token);
   localStorage.setItem(TOKEN_KEY, token);
   setAuthState(true);
-  await loadOrders();
-  startRealtime();
   startPolling();
+  startRealtime();
+  await loadOrders();
   if (showWelcome) showToast("Sesion iniciada");
 };
 
@@ -645,6 +672,18 @@ logoutBtn?.addEventListener("click", () => {
 
 refreshBtn?.addEventListener("click", () => {
   void loadOrders();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && getToken()) {
+    void loadOrders({ silent: true });
+  }
+});
+
+window.addEventListener("focus", () => {
+  if (getToken()) {
+    void loadOrders({ silent: true });
+  }
 });
 
 // Enable sound button: user gesture to unlock audio on mobile browsers
