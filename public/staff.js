@@ -1,7 +1,8 @@
 const TOKEN_KEY = "STAFF_TOKEN";
 // Poll interval in ms (approx every 5-7s; using 6000ms midpoint)
 const POLL_INTERVAL_MS = 6000;
-const LAST_SEEN_KEY = "LAST_SEEN_ORDER_TIMESTAMP";
+const POLL_WATCHDOG_MS = POLL_INTERVAL_MS * 3;
+const REQUEST_TIMEOUT_MS = 12000;
 const REALTIME_CHANNEL = "staff-orders-live";
 
 const loginPanel = document.getElementById("login-panel");
@@ -18,7 +19,7 @@ const toastEl = document.getElementById("toast");
 const supabaseLib = window.supabase;
 const createClient = supabaseLib?.createClient;
 
-const SOUND_START_SEC = 46;
+const SOUND_START_SEC = 0;
 const SOUND_DURATION_SEC = 6;
 const orderSound = new Audio("/bachata.mp3");
 orderSound.preload = "auto";
@@ -35,7 +36,9 @@ let updatingOrderIds = new Set();
 let knownPaidOrderIds = new Set();
 let hasHydratedOrders = false;
 let pollTimer = null;
+let pollWatchdogTimer = null;
 let pollInFlight = null;
+let lastPollStartedAt = 0;
 let refreshDebounceTimer = null;
 let supabaseClient = null;
 let realtimeChannel = null;
@@ -100,6 +103,23 @@ const withNoCacheQuery = (path) => {
   return `${path}${separator}_ts=${Date.now()}`;
 };
 
+const fetchWithTimeout = async (path, options = {}) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(path, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      const timeoutError = new Error("Request timed out");
+      timeoutError.code = "REQUEST_TIMEOUT";
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const apiFetch = async (path, { method = "GET", body, token, suppressUnauthorizedHandler = false } = {}) => {
   const headers = { Accept: "application/json" };
   const authToken = token ?? getToken();
@@ -114,7 +134,7 @@ const apiFetch = async (path, { method = "GET", body, token, suppressUnauthorize
   const normalizedPath = normalizeApiPath(path);
   const upperMethod = String(method || "GET").toUpperCase();
   const requestPath = upperMethod === "GET" ? withNoCacheQuery(normalizedPath) : normalizedPath;
-  const response = await fetch(requestPath, {
+  const response = await fetchWithTimeout(requestPath, {
     method: upperMethod,
     headers,
     body: payload,
@@ -152,7 +172,7 @@ const fetchStaffOrders = async ({ token, suppressUnauthorizedHandler = false } =
   const authToken = token ?? getToken();
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
-  const response = await fetch(withNoCacheQuery("/api/staff/orders"), {
+  const response = await fetchWithTimeout(withNoCacheQuery("/api/staff/orders"), {
     method: "GET",
     headers,
     cache: "no-store",
@@ -240,6 +260,7 @@ const sortItemsWithDrinksLast = (items = []) =>
 
 const isCompletedOrder = (order) => String(order?.status || "").toLowerCase() === "completed";
 const getOrderTimeValue = (order) => order?.paid_at || order?.created_at || null;
+const getOrderIdKey = (order) => String(order?.id ?? "").trim();
 
 const findSelectedOrder = () => orders.find((order) => String(order.id) === String(selectedOrderId)) || null;
 
@@ -421,10 +442,60 @@ const ensureSoundReady = () =>
     orderSound.addEventListener("loadedmetadata", () => resolve(), { once: true });
   });
 
+const setAudioEnabled = (enabled) => {
+  audioEnabled = Boolean(enabled);
+  if (audioEnabled) {
+    sessionStorage.setItem("audioEnabled", "1");
+  } else {
+    sessionStorage.removeItem("audioEnabled");
+  }
+  if (enableSoundBtn) enableSoundBtn.hidden = audioEnabled;
+};
+
+const tryEnableAudio = async () => {
+  const originalVolume = orderSound.volume;
+  try {
+    await ensureSoundReady();
+    orderSound.volume = 0;
+    orderSound.currentTime = SOUND_START_SEC;
+    await orderSound.play();
+    orderSound.pause();
+    orderSound.currentTime = SOUND_START_SEC;
+    setAudioEnabled(true);
+    return true;
+  } catch {
+    setAudioEnabled(false);
+    return false;
+  } finally {
+    orderSound.volume = originalVolume;
+  }
+};
+
+const handleAudioUnlockGesture = () => {
+  void tryEnableAudio().then((enabled) => {
+    if (enabled) removeAudioUnlockListeners();
+  });
+};
+
+const addAudioUnlockListeners = () => {
+  if (audioEnabled) return;
+  window.addEventListener("pointerdown", handleAudioUnlockGesture);
+  window.addEventListener("keydown", handleAudioUnlockGesture);
+};
+
+const removeAudioUnlockListeners = () => {
+  window.removeEventListener("pointerdown", handleAudioUnlockGesture);
+  window.removeEventListener("keydown", handleAudioUnlockGesture);
+};
+
 const playOrderSound = async () => {
   if (!audioEnabled) {
-    showToast("Toca Activar sonido", "error");
-    return;
+    const enabled = await tryEnableAudio();
+    if (!enabled) {
+      addAudioUnlockListeners();
+      showToast("Toca Activar sonido", "error");
+      return;
+    }
   }
   try {
     await ensureSoundReady();
@@ -436,7 +507,9 @@ const playOrderSound = async () => {
       orderSound.pause();
       orderSound.currentTime = SOUND_START_SEC;
     }, SOUND_DURATION_SEC * 1000);
-  } catch (e) {
+  } catch {
+    setAudioEnabled(false);
+    addAudioUnlockListeners();
     showToast("Toca Activar sonido", "error");
   }
 };
@@ -453,54 +526,46 @@ const applyOrders = (nextOrders) => {
 
   renderOrders();
   renderDetails();
-
-  hasHydratedOrders = true;
 };
 
-// Poll once and detect newest paid order; handles alerting via sound once per new order.
+// Poll once and detect newly paid order IDs; handles alerting via sound once per refresh cycle.
 const pollOnce = async ({ silent = false } = {}) => {
   if (pollInFlight) return pollInFlight;
+  lastPollStartedAt = Date.now();
 
   pollInFlight = (async () => {
-  try {
-    const data = await fetchStaffOrders();
-    // apply orders for rendering
-    applyOrders(data);
+    try {
+      const data = await fetchStaffOrders();
+      const paidOrders = (Array.isArray(data) ? data : []).filter(isPaidOrder);
+      const nextKnownPaidOrderIds = new Set(
+        paidOrders.map((order) => getOrderIdKey(order)).filter((id) => id.length > 0),
+      );
 
-    // determine newest paid order time value
-    const paid = (Array.isArray(data) ? data : []).filter(isPaidOrder);
-    if (!paid.length) return;
+      // apply orders for rendering
+      applyOrders(data);
 
-    paid.sort((a, b) => {
-      const ta = getOrderTimeValue(a) || "";
-      const tb = getOrderTimeValue(b) || "";
-      if (ta > tb) return -1;
-      if (ta < tb) return 1;
-      return 0;
-    });
+      // first successful hydration: establish baseline without alerting
+      if (!hasHydratedOrders) {
+        knownPaidOrderIds = nextKnownPaidOrderIds;
+        hasHydratedOrders = true;
+        return;
+      }
 
-    const newest = paid[0];
-    const newestTime = getOrderTimeValue(newest);
-    if (!newestTime) return;
+      let newPaidCount = 0;
+      for (const id of nextKnownPaidOrderIds) {
+        if (!knownPaidOrderIds.has(id)) newPaidCount += 1;
+      }
+      knownPaidOrderIds = nextKnownPaidOrderIds;
 
-    const stored = localStorage.getItem(LAST_SEEN_KEY);
-    if (!stored) {
-      // first poll: set but do not alert
-      localStorage.setItem(LAST_SEEN_KEY, String(newestTime));
-      return;
+      if (newPaidCount > 0) {
+        await playOrderSound();
+        showToast(newPaidCount > 1 ? `${newPaidCount} nuevos pedidos pagados` : "Nuevo pedido pagado");
+      }
+    } catch (error) {
+      if (!silent) showToast(error.message || "No se pudieron cargar los pedidos", "error");
+    } finally {
+      pollInFlight = null;
     }
-
-    if (String(newestTime) > String(stored)) {
-      // new order detected
-      await playOrderSound();
-      localStorage.setItem(LAST_SEEN_KEY, String(newestTime));
-      showToast("Nuevo pedido pagado");
-    }
-  } catch (error) {
-    if (!silent) showToast(error.message || "No se pudieron cargar los pedidos", "error");
-  } finally {
-    pollInFlight = null;
-  }
   })();
 
   return pollInFlight;
@@ -587,14 +652,33 @@ const startPolling = () => {
     clearInterval(pollTimer);
     pollTimer = null;
   }
+  if (pollWatchdogTimer) {
+    clearInterval(pollWatchdogTimer);
+    pollWatchdogTimer = null;
+  }
 
   // run immediately
+  lastPollStartedAt = 0;
   void pollOnce({ silent: true });
 
   // repeat at roughly POLL_INTERVAL_MS
   pollTimer = setInterval(() => {
     void pollOnce({ silent: true });
   }, POLL_INTERVAL_MS);
+
+  // watchdog to prevent silent timer stalls.
+  pollWatchdogTimer = setInterval(() => {
+    if (!getToken()) return;
+    const elapsed = Date.now() - lastPollStartedAt;
+    if (!pollInFlight && (lastPollStartedAt === 0 || elapsed >= POLL_WATCHDOG_MS)) {
+      void pollOnce({ silent: true });
+    }
+  }, POLL_INTERVAL_MS);
+};
+
+const ensurePollingActive = () => {
+  if (!getToken()) return;
+  if (!pollTimer) startPolling();
 };
 
 const stopLiveUpdates = () => {
@@ -602,7 +686,12 @@ const stopLiveUpdates = () => {
     clearInterval(pollTimer);
     pollTimer = null;
   }
+  if (pollWatchdogTimer) {
+    clearInterval(pollWatchdogTimer);
+    pollWatchdogTimer = null;
+  }
   pollInFlight = null;
+  lastPollStartedAt = 0;
   if (refreshDebounceTimer) {
     clearTimeout(refreshDebounceTimer);
     refreshDebounceTimer = null;
@@ -648,6 +737,13 @@ loginForm?.addEventListener("submit", async (event) => {
     return;
   }
 
+  if (!audioEnabled) {
+    // Attempt unlock within the user gesture that submits login.
+    void tryEnableAudio().then((enabled) => {
+      if (enabled) removeAudioUnlockListeners();
+    });
+  }
+
   loginBtn.disabled = true;
   try {
     await startAuthedSession(token, { showWelcome: true });
@@ -676,12 +772,21 @@ refreshBtn?.addEventListener("click", () => {
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && getToken()) {
+    ensurePollingActive();
     void loadOrders({ silent: true });
   }
 });
 
 window.addEventListener("focus", () => {
   if (getToken()) {
+    ensurePollingActive();
+    void loadOrders({ silent: true });
+  }
+});
+
+window.addEventListener("online", () => {
+  if (getToken()) {
+    ensurePollingActive();
     void loadOrders({ silent: true });
   }
 });
@@ -690,18 +795,14 @@ window.addEventListener("focus", () => {
 enableSoundBtn?.addEventListener("click", async () => {
   try {
     enableSoundBtn.disabled = true;
-    // attempt a quick play/pause sequence to unlock audio
-    try {
-      await orderSound.play();
-      orderSound.pause();
-      orderSound.currentTime = 0;
-    } catch (e) {
-      // ignore - some browsers block play until user gesture
+    const enabled = await tryEnableAudio();
+    if (enabled) {
+      removeAudioUnlockListeners();
+      showToast("Sonido activado");
+    } else {
+      addAudioUnlockListeners();
+      showToast("No se pudo activar el sonido", "error");
     }
-    sessionStorage.setItem("audioEnabled", "1");
-    audioEnabled = true;
-    if (enableSoundBtn) enableSoundBtn.hidden = true;
-    showToast("Sonido activado");
   } finally {
     if (enableSoundBtn) enableSoundBtn.disabled = false;
   }
@@ -710,6 +811,11 @@ enableSoundBtn?.addEventListener("click", async () => {
 const initialize = async () => {
   setAuthState(false);
   resetOrdersState();
+  if (audioEnabled) {
+    if (enableSoundBtn) enableSoundBtn.hidden = true;
+  } else {
+    addAudioUnlockListeners();
+  }
 
   const token = getToken();
   if (!token) return;

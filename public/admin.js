@@ -9,6 +9,7 @@ if (!createClient) {
 
 const TOKEN_KEY = "ADMIN_TOKEN";
 const REALTIME_CHANNEL = "admin-orders";
+const POLL_INTERVAL_MS = 6000;
 // In api/[...route].js, admin handlers are addressed via route=admin/<endpoint>.
 const ADMIN_ROUTE_BASE = "/api/admin?route=admin/";
 const ADMIN_SETTINGS_PATH = `${ADMIN_ROUTE_BASE}settings`;
@@ -77,6 +78,8 @@ let latestSettings = null;
 let supabaseClient = null;
 let realtimeChannel = null;
 let ordersRefreshTimer = null;
+let pollTimer = null;
+let pollInFlight = null;
 window.__promoCache = window.__promoCache || [];
 
 const showToast = (message, type = "success") => {
@@ -144,6 +147,7 @@ const handleUnauthorized = () => {
   sessionStorage.removeItem(TOKEN_KEY);
   setAuthState(false);
   stopRealtime();
+  stopPolling();
   showToast("La sesion expiro. Inicia sesion de nuevo.", "error");
 };
 
@@ -439,7 +443,7 @@ const renderSalesSummary = (summary) => {
   renderLast7DaysChart(summary.last7Days);
 };
 
-const loadSalesSummary = async () => {
+const loadSalesSummary = async ({ silent = false } = {}) => {
   if (!statsTodayDate) return;
   const selectedDateKey = getSelectedStatsDate();
 
@@ -448,7 +452,7 @@ const loadSalesSummary = async () => {
     renderSalesSummary(normalizeSalesSummary(data, selectedDateKey));
   } catch (error) {
     renderSalesSummary(normalizeSalesSummary(null, selectedDateKey));
-    showToast(error.message || "No se pudieron cargar las ventas resumidas.", "error");
+    if (!silent) showToast(error.message || "No se pudieron cargar las ventas resumidas.", "error");
   }
 };
 
@@ -723,12 +727,12 @@ const buildMenuItemCard = (item) => {
   return card;
 };
 
-const loadOrders = async () => {
+const loadOrders = async ({ silent = false } = {}) => {
   try {
     orders = await apiFetch(ADMIN_ORDERS_PATH, { method: "POST" });
     renderOrders();
   } catch (error) {
-    showToast(error.message || "No se pudieron cargar los pedidos.", "error");
+    if (!silent) showToast(error.message || "No se pudieron cargar los pedidos.", "error");
   }
 };
 
@@ -736,9 +740,38 @@ const scheduleOrdersRefresh = () => {
   if (ordersRefreshTimer) return;
   ordersRefreshTimer = setTimeout(() => {
     ordersRefreshTimer = null;
-    loadOrders();
-    loadSalesSummary();
+    void loadOrders({ silent: true });
+    void loadSalesSummary({ silent: true });
   }, 400);
+};
+
+const runLiveRefresh = async ({ silent = true } = {}) => {
+  if (pollInFlight) return pollInFlight;
+  pollInFlight = (async () => {
+    try {
+      await Promise.all([loadOrders({ silent }), loadSalesSummary({ silent })]);
+    } finally {
+      pollInFlight = null;
+    }
+  })();
+  return pollInFlight;
+};
+
+const startPolling = () => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+  void runLiveRefresh({ silent: true });
+  pollTimer = setInterval(() => {
+    void runLiveRefresh({ silent: true });
+  }, POLL_INTERVAL_MS);
+};
+
+const stopPolling = () => {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = null;
+  pollInFlight = null;
 };
 
 const startRealtime = () => {
@@ -1156,11 +1189,13 @@ const initialize = async () => {
     try {
       await validateToken(token);
       setAuthState(true);
-      await Promise.all([loadSettings(), loadMenu(), loadOrders(), refreshPromoCodes(), loadSalesSummary()]);
+      startPolling();
       startRealtime();
+      await Promise.all([loadSettings(), loadMenu(), runLiveRefresh({ silent: false }), refreshPromoCodes()]);
     } catch (error) {
       sessionStorage.removeItem(TOKEN_KEY);
       setAuthState(false);
+      stopPolling();
       showToast(error.message || "Token invalido", "error");
     }
   }
@@ -1179,13 +1214,15 @@ loginBtn.addEventListener("click", async () => {
     await validateToken(token);
     sessionStorage.setItem(TOKEN_KEY, token);
     setAuthState(true);
-    await Promise.all([loadSettings(), loadMenu(), loadOrders(), refreshPromoCodes(), loadSalesSummary()]);
+    startPolling();
     startRealtime();
+    await Promise.all([loadSettings(), loadMenu(), runLiveRefresh({ silent: false }), refreshPromoCodes()]);
     showToast("Bienvenido de nuevo.");
     tokenInput.value = "";
   } catch (error) {
     sessionStorage.removeItem(TOKEN_KEY);
     setAuthState(false);
+    stopPolling();
     showToast(error.message || "Token invalido", "error");
   } finally {
     loginBtn.disabled = false;
@@ -1196,6 +1233,7 @@ logoutBtn.addEventListener("click", () => {
   sessionStorage.removeItem(TOKEN_KEY);
   setAuthState(false);
   stopRealtime();
+  stopPolling();
   setPromoCache([]);
   renderPromoCodes([]);
   clearPromoFeedback();
@@ -1212,5 +1250,11 @@ if (promoTypeSelect) promoTypeSelect.addEventListener("change", updatePromoValue
 if (promoForm) promoForm.addEventListener("submit", savePromoCode);
 document.addEventListener("click", handlePromoEditClick);
 window.addEventListener("resize", scheduleOrdersTableScroll);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && getToken()) void runLiveRefresh({ silent: true });
+});
+window.addEventListener("focus", () => {
+  if (getToken()) void runLiveRefresh({ silent: true });
+});
 
 initialize();
