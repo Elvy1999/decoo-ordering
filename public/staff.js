@@ -35,6 +35,7 @@ let selectedOrderId = null;
 let updatingOrderIds = new Set();
 let knownPaidOrderIds = new Set();
 let hasHydratedOrders = false;
+let pendingPaidOrderAlerts = 0;
 let pollTimer = null;
 let pollWatchdogTimer = null;
 let pollInFlight = null;
@@ -261,6 +262,8 @@ const sortItemsWithDrinksLast = (items = []) =>
 const isCompletedOrder = (order) => String(order?.status || "").toLowerCase() === "completed";
 const getOrderTimeValue = (order) => order?.paid_at || order?.created_at || null;
 const getOrderIdKey = (order) => String(order?.id ?? "").trim();
+const getNewPaidOrdersMessage = (count) =>
+  count > 1 ? `${count} nuevos pedidos pagados` : "Nuevo pedido pagado";
 
 const findSelectedOrder = () => orders.find((order) => String(order.id) === String(selectedOrderId)) || null;
 
@@ -434,12 +437,26 @@ const renderDetails = () => {
 };
 
 const ensureSoundReady = () =>
-  new Promise((resolve) => {
+  new Promise((resolve, reject) => {
     if (orderSound.readyState >= 1) {
       resolve();
       return;
     }
-    orderSound.addEventListener("loadedmetadata", () => resolve(), { once: true });
+    const onLoaded = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error("No se pudo cargar el sonido"));
+    };
+    const cleanup = () => {
+      orderSound.removeEventListener("loadedmetadata", onLoaded);
+      orderSound.removeEventListener("error", onError);
+    };
+    orderSound.addEventListener("loadedmetadata", onLoaded, { once: true });
+    orderSound.addEventListener("error", onError, { once: true });
+    orderSound.load();
   });
 
 const setAudioEnabled = (enabled) => {
@@ -454,11 +471,16 @@ const setAudioEnabled = (enabled) => {
 
 const tryEnableAudio = async () => {
   const originalVolume = orderSound.volume;
+  const originalMuted = orderSound.muted;
   try {
-    await ensureSoundReady();
+    // Call play immediately so this can succeed inside a click/submit gesture.
+    orderSound.muted = true;
     orderSound.volume = 0;
     orderSound.currentTime = SOUND_START_SEC;
-    await orderSound.play();
+    const playPromise = orderSound.play();
+    if (playPromise && typeof playPromise.then === "function") {
+      await playPromise;
+    }
     orderSound.pause();
     orderSound.currentTime = SOUND_START_SEC;
     setAudioEnabled(true);
@@ -467,13 +489,17 @@ const tryEnableAudio = async () => {
     setAudioEnabled(false);
     return false;
   } finally {
+    orderSound.muted = originalMuted;
     orderSound.volume = originalVolume;
   }
 };
 
 const handleAudioUnlockGesture = () => {
   void tryEnableAudio().then((enabled) => {
-    if (enabled) removeAudioUnlockListeners();
+    if (enabled) {
+      removeAudioUnlockListeners();
+      void playPendingOrderAlert();
+    }
   });
 };
 
@@ -488,13 +514,13 @@ const removeAudioUnlockListeners = () => {
   window.removeEventListener("keydown", handleAudioUnlockGesture);
 };
 
-const playOrderSound = async () => {
+const playOrderSound = async ({ showEnablePrompt = true } = {}) => {
   if (!audioEnabled) {
     const enabled = await tryEnableAudio();
     if (!enabled) {
       addAudioUnlockListeners();
-      showToast("Toca Activar sonido", "error");
-      return;
+      if (showEnablePrompt) showToast("Toca Activar sonido", "error");
+      return false;
     }
   }
   try {
@@ -507,12 +533,26 @@ const playOrderSound = async () => {
       orderSound.pause();
       orderSound.currentTime = SOUND_START_SEC;
     }, SOUND_DURATION_SEC * 1000);
+    return true;
   } catch {
     setAudioEnabled(false);
     addAudioUnlockListeners();
-    showToast("Toca Activar sonido", "error");
+    if (showEnablePrompt) showToast("Toca Activar sonido", "error");
+    return false;
   }
 };
+
+async function playPendingOrderAlert() {
+  if (!audioEnabled || pendingPaidOrderAlerts <= 0) return;
+  const queuedCount = pendingPaidOrderAlerts;
+  pendingPaidOrderAlerts = 0;
+  const played = await playOrderSound({ showEnablePrompt: false });
+  if (!played) {
+    pendingPaidOrderAlerts += queuedCount;
+    return;
+  }
+  showToast(getNewPaidOrdersMessage(queuedCount));
+}
 
 const applyOrders = (nextOrders) => {
   const paidOrders = (Array.isArray(nextOrders) ? nextOrders : []).filter(isPaidOrder);
@@ -558,8 +598,12 @@ const pollOnce = async ({ silent = false } = {}) => {
       knownPaidOrderIds = nextKnownPaidOrderIds;
 
       if (newPaidCount > 0) {
-        await playOrderSound();
-        showToast(newPaidCount > 1 ? `${newPaidCount} nuevos pedidos pagados` : "Nuevo pedido pagado");
+        const played = await playOrderSound();
+        if (played) {
+          showToast(getNewPaidOrdersMessage(newPaidCount));
+        } else {
+          pendingPaidOrderAlerts += newPaidCount;
+        }
       }
     } catch (error) {
       if (!silent) showToast(error.message || "No se pudieron cargar los pedidos", "error");
@@ -705,6 +749,7 @@ const resetOrdersState = () => {
   updatingOrderIds = new Set();
   knownPaidOrderIds = new Set();
   hasHydratedOrders = false;
+  pendingPaidOrderAlerts = 0;
   renderOrders();
   renderDetails();
 };
@@ -740,7 +785,10 @@ loginForm?.addEventListener("submit", async (event) => {
   if (!audioEnabled) {
     // Attempt unlock within the user gesture that submits login.
     void tryEnableAudio().then((enabled) => {
-      if (enabled) removeAudioUnlockListeners();
+      if (enabled) {
+        removeAudioUnlockListeners();
+        void playPendingOrderAlert();
+      }
     });
   }
 
@@ -799,6 +847,7 @@ enableSoundBtn?.addEventListener("click", async () => {
     if (enabled) {
       removeAudioUnlockListeners();
       showToast("Sonido activado");
+      void playPendingOrderAlert();
     } else {
       addAudioUnlockListeners();
       showToast("No se pudo activar el sonido", "error");
